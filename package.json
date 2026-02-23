@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/run-with-env.mjs --import tsx src/app.ts",
+    "adapter:risk-classification-llm": "node scripts/run-with-env.mjs --import tsx src/adapters/risk-classification-llm-adapter/index.ts",
+    "worker:risk-classification": "node scripts/run-with-env.mjs --import tsx src/workers/risk-classification-worker.ts",
+    "worker:risk-engine": "node scripts/run-with-env.mjs --import tsx src/workers/risk-engine-worker.ts",
     "build": "tsc -p tsconfig.build.json",
     "prestart": "npm run build",
     "start": "node scripts/run-with-env.mjs dist/app.js",

@@ -55,6 +55,14 @@
 | `payload` | JSON String | Serialized domain message |
 | `published_at_utc` | ISO Timestamp | Written alongside payload |
 
+### Current Stream Payloads
+
+| Stream | Key fields in payload |
+|------|-------------------------|
+| `external-signals` | `event_id`, `source_type`, `raw_content`, `geographic_scope`, `signal_confidence` |
+| `classified-events` | `classification_id`, `event_id`, `event_type`, `severity_level`, `classification_confidence` |
+| `risk-evaluations` | `risk_id`, `classification_id`, `risk_score`, `risk_level`, `estimated_revenue_exposure` |
+
 ---
 
 ## Operational Key Schema (Redis)

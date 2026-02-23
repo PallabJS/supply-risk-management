@@ -11,6 +11,8 @@ This repository currently implements the **production-grade foundation** for:
 - Durable event bus on Redis Streams
 - Deduplication and idempotency
 - Consumer-group and DLQ primitives
+- Risk classification with confidence gating and fallback
+- Local OpenAI-compatible LLM adapter service for classification
 
 ---
 
@@ -31,7 +33,19 @@ External Inputs (manual/weather/news adapters)
       - retry counters + DLQ
                 |
                 v
-      Downstream Services (planned)
+      Risk Classification Service
+      - consumes external-signals
+      - publishes classified-events
+      - load-managed LLM primary + confidence gating + fallback classifier
+                |
+                v
+      Dependency & Risk Engine
+      - consumes classified-events
+      - publishes risk-evaluations
+      - deterministic scoring + explainable factors
+                |
+                v
+      Remaining Downstream Services (planned)
 ```
 
 ---
@@ -42,8 +56,8 @@ External Inputs (manual/weather/news adapters)
 | --------------------------- | ----------- | ------------------------------------------------------------ |
 | Signal Ingestion Service    | Implemented | Production publish path via Redis Streams                    |
 | Event Bus Architecture      | Implemented | Redis Streams, consumer groups, DLQ, codecs                  |
-| Risk Classification Service | Planned     | Will consume `external-signals` and emit `classified-events` |
-| Dependency & Risk Engine    | Planned     | Will consume `classified-events` and emit `risk-evaluations` |
+| Risk Classification Service | Implemented | Load-managed LLM primary with confidence gating and fallback |
+| Dependency & Risk Engine    | Implemented | Deterministic worker consumes `classified-events` and emits `risk-evaluations` |
 | Mitigation Planning Service | Planned     | Will consume `risk-evaluations` and emit `mitigation-plans`  |
 | Notification Service        | Planned     | Will consume risk/mitigation outputs and emit notifications  |
 | Frontend Dashboard          | Planned     | Will read notification and risk outputs                      |
@@ -55,8 +69,8 @@ External Inputs (manual/weather/news adapters)
 | Stream              | Description                                     |
 | ------------------- | ----------------------------------------------- |
 | `external-signals`  | Raw normalized ingestion events                 |
-| `classified-events` | Structured risks (planned producer)             |
-| `risk-evaluations`  | Deterministic risk outputs (planned producer)   |
+| `classified-events` | Structured risks (produced by risk classification) |
+| `risk-evaluations`  | Deterministic risk outputs from risk engine      |
 | `mitigation-plans`  | Validated mitigation actions (planned producer) |
 | `notifications`     | Outbound alerts (planned producer)              |
 
@@ -67,6 +81,7 @@ External Inputs (manual/weather/news adapters)
 - Durable stream persistence in Redis.
 - At-least-once semantics on ingestion publish with retry.
 - Restart-safe deduplication using Redis idempotency keys.
+- Bounded request concurrency and queue backpressure on LLM classification path.
 - Dead-letter routing support for malformed/failed-consumption records.
 - Fail-fast startup when Redis is unavailable or `REDIS_URL` is missing.
 
@@ -76,10 +91,13 @@ External Inputs (manual/weather/news adapters)
 
 1. Configure env from `.env.example`.
 2. Start Redis: `npm run infra:up`.
-3. Run app: `npm run dev`.
-4. Run unit tests: `npm test`.
-5. Run integration tests: `npm run test:integration`.
-6. Stop Redis: `npm run infra:down`.
+3. Run LLM adapter (LLM mode): `npm run adapter:risk-classification-llm`.
+4. Run ingestion demo: `npm run dev`.
+5. Run classification worker: `npm run worker:risk-classification`.
+6. Run risk engine worker: `npm run worker:risk-engine`.
+7. Run unit tests: `npm test`.
+8. Run integration tests: `npm run test:integration`.
+9. Stop Redis: `npm run infra:down`.
 
 ---
 
