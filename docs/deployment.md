@@ -28,6 +28,16 @@ Defaults:
 - `SIGNAL_INGESTION_GATEWAY_MAX_SIGNALS_PER_REQUEST=500`
 - `SIGNAL_INGESTION_GATEWAY_AUTH_TOKEN=` (optional)
 - `SIGNAL_INGESTION_GATEWAY_URL=http://127.0.0.1:8090/signals` (used by sample producer script)
+- `WEATHER_CONNECTOR_BASE_URL=https://api.weather.gov`
+- `WEATHER_CONNECTOR_ALERTS_PATH=/alerts/active`
+- `WEATHER_CONNECTOR_AREA=` (optional, e.g. `CA,OR`)
+- `WEATHER_CONNECTOR_SEVERITY=Severe,Extreme` (optional)
+- `WEATHER_CONNECTOR_URGENCY=Immediate,Expected` (optional)
+- `WEATHER_CONNECTOR_CERTAINTY=Observed,Likely` (optional)
+- `WEATHER_CONNECTOR_USER_AGENT=swarm-risk-management/0.1 (dev@localhost)`
+- `WEATHER_CONNECTOR_POLL_INTERVAL_MS=60000`
+- `WEATHER_CONNECTOR_REQUEST_TIMEOUT_MS=10000`
+- `WEATHER_CONNECTOR_MAX_ALERTS_PER_POLL=200`
 - `RISK_CLASSIFICATION_PRIMARY_CLASSIFIER=RULE_BASED`
 - `RISK_CLASSIFICATION_CONSUMER_GROUP=risk-classification-group`
 - `RISK_CLASSIFICATION_CONSUMER_NAME=` (optional)
@@ -81,6 +91,7 @@ Compose file: `docker-compose.yml`
 | `npm run dev` | Run app directly from TS sources |
 | `npm run gateway:signal-ingestion` | Run HTTP gateway for input streaming (`POST /signals`) |
 | `npm run worker:signal-ingestion` | Run signal ingestion worker (`raw-input-signals` -> `external-signals`) |
+| `npm run connector:weather-noaa` | Poll NOAA active alerts and stream weather events into `raw-input-signals` |
 | `npm run adapter:risk-classification-llm` | Run local `/classify` adapter for OpenAI-compatible LLM backends |
 | `npm run worker:risk-classification` | Run risk classification worker |
 | `npm run worker:risk-engine` | Run risk engine worker |

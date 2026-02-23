@@ -18,6 +18,8 @@ Current production path publishes to Redis Streams.
 | Source type constants | `src/modules/signal-ingestion/constants.ts` |
 | Retry utility | `src/modules/signal-ingestion/retry.ts` |
 | Manual simulation source | `src/modules/signal-ingestion/sources/manual-simulation-source.ts` |
+| NOAA weather connector | `src/connectors/weather-noaa/` |
+| NOAA connector worker entrypoint | `src/workers/weather-connector-worker.ts` |
 | Type contracts | `src/modules/signal-ingestion/types.ts` |
 | HTTP input gateway adapter | `src/adapters/signal-ingestion-gateway/` |
 
@@ -40,13 +42,14 @@ Current production path publishes to Redis Streams.
 
 ## Runtime Behavior
 1. Receive raw events via `POST /signals` (gateway) or polling sources.
-2. Publish raw payloads durably into `raw-input-signals`.
-3. Ingestion worker consumes `raw-input-signals`.
-4. Normalize each raw signal into canonical schema.
-5. Queue non-duplicate events for publish.
-6. For each queued event, reserve idempotency key (`markIfFirstSeen`).
-7. Publish normalized signals to `external-signals` with retry policy.
-8. On publish failure, clear idempotency key and keep event pending.
+2. NOAA connector (`connector:weather-noaa`) polls active weather alerts and publishes raw weather events.
+3. Publish raw payloads durably into `raw-input-signals`.
+4. Ingestion worker consumes `raw-input-signals`.
+5. Normalize each raw signal into canonical schema.
+6. Queue non-duplicate events for publish.
+7. For each queued event, reserve idempotency key (`markIfFirstSeen`).
+8. Publish normalized signals to `external-signals` with retry policy.
+9. On publish failure, clear idempotency key and keep event pending.
 
 ---
 
@@ -84,6 +87,11 @@ Streaming demo path:
 1. Start all services: `npm run services:all`
 2. Submit sample input: `npm run producer:sample-input`
 3. Inspect stream outputs with your stream inspector command.
+
+Automated weather stream path:
+1. Configure NOAA connector env fields in `.env`.
+2. Run `npm run connector:weather-noaa`.
+3. Weather alerts automatically flow into `raw-input-signals`.
 
 ## HTTP Gateway Contract
 Accepted endpoints:

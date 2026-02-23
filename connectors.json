@@ -1,0 +1,29 @@
+{
+  "connectors": [
+    {
+      "name": "weather-noaa",
+      "type": "NOAA_WEATHER",
+      "enabled": true,
+      "pollIntervalMs": 60000,
+      "requestTimeoutMs": 10000,
+      "maxRetries": 2,
+      "outputStream": "raw-input-signals",
+      "leaseTtlSeconds": 30,
+      "retryConfig": {
+        "baseDelayMs": 150,
+        "maxDelayMs": 10000,
+        "jitterRatio": 0.1
+      },
+      "providerConfig": {
+        "baseUrl": "https://api.weather.gov",
+        "alertsPath": "/alerts/active",
+        "userAgent": "swarm-risk-management/0.1",
+        "area": "",
+        "severity": "Severe,Extreme",
+        "urgency": "Immediate,Expected",
+        "certainty": "Observed,Likely",
+        "maxAlertsPerPoll": 200
+      }
+    }
+  ]
+}

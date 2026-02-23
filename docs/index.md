@@ -19,7 +19,7 @@ This repository currently implements the **production-grade foundation** for:
 ## Current Architecture (Implemented)
 
 ```text
-External Inputs (webhooks, vendor feeds, manual adapters)
+External Inputs (webhooks, vendor feeds, NOAA weather connector, manual adapters)
                 |
                 v
       Input Streaming Gateway
@@ -101,13 +101,14 @@ External Inputs (webhooks, vendor feeds, manual adapters)
 2. Start Redis: `npm run infra:up`.
 3. Run input gateway: `npm run gateway:signal-ingestion`.
 4. Run ingestion worker: `npm run worker:signal-ingestion`.
-5. Run LLM adapter (LLM mode): `npm run adapter:risk-classification-llm`.
-6. Run classification worker: `npm run worker:risk-classification`.
-7. Run risk engine worker: `npm run worker:risk-engine`.
-8. Send input events to `/signals` or run demo producer: `npm run producer:sample-input`.
-9. Run unit tests: `npm test`.
-10. Run integration tests: `npm run test:integration`.
-11. Stop Redis: `npm run infra:down`.
+5. (Optional) Run weather connector: `npm run connector:weather-noaa`.
+6. Run LLM adapter (LLM mode): `npm run adapter:risk-classification-llm`.
+7. Run classification worker: `npm run worker:risk-classification`.
+8. Run risk engine worker: `npm run worker:risk-engine`.
+9. Send input events to `/signals` or run demo producer: `npm run producer:sample-input`.
+10. Run unit tests: `npm test`.
+11. Run integration tests: `npm run test:integration`.
+12. Stop Redis: `npm run infra:down`.
 
 ---
 

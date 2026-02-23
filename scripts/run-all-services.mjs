@@ -14,6 +14,10 @@ const services = [
     args: ["--import", "tsx", "src/workers/signal-ingestion-worker.ts"]
   },
   {
+    name: "weather-connector",
+    args: ["--import", "tsx", "src/workers/weather-connector-worker.ts"]
+  },
+  {
     name: "risk-classification-llm-adapter",
     args: ["--import", "tsx", "src/adapters/risk-classification-llm-adapter/index.ts"]
   },
