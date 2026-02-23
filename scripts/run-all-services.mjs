@@ -6,6 +6,14 @@ const runWithEnvPath = fileURLToPath(new URL("./run-with-env.mjs", import.meta.u
 
 const services = [
   {
+    name: "signal-ingestion-gateway",
+    args: ["--import", "tsx", "src/adapters/signal-ingestion-gateway/index.ts"]
+  },
+  {
+    name: "signal-ingestion-worker",
+    args: ["--import", "tsx", "src/workers/signal-ingestion-worker.ts"]
+  },
+  {
     name: "risk-classification-llm-adapter",
     args: ["--import", "tsx", "src/adapters/risk-classification-llm-adapter/index.ts"]
   },

@@ -19,14 +19,21 @@ This repository currently implements the **production-grade foundation** for:
 ## Current Architecture (Implemented)
 
 ```text
-External Inputs (manual/weather/news adapters)
+External Inputs (webhooks, vendor feeds, manual adapters)
                 |
                 v
-      Signal Ingestion Service
-  (normalize, dedup, retry, publish)
+      Input Streaming Gateway
+      - POST /signals
+      - durable publish to raw-input-signals
+                |
+                v
+      Signal Ingestion Worker + Service
+      - consumes raw-input-signals
+      - normalize, dedup, retry, publish
                 |
                 v
       Redis Streams Event Bus
+      - raw-input-signals stream
       - external-signals stream
       - durable persisted history
       - consumer groups + ack
@@ -54,7 +61,7 @@ External Inputs (manual/weather/news adapters)
 
 | Module                      | Status      | Notes                                                        |
 | --------------------------- | ----------- | ------------------------------------------------------------ |
-| Signal Ingestion Service    | Implemented | Production publish path via Redis Streams                    |
+| Signal Ingestion Service    | Implemented | Gateway + worker path from `raw-input-signals` to `external-signals` |
 | Event Bus Architecture      | Implemented | Redis Streams, consumer groups, DLQ, codecs                  |
 | Risk Classification Service | Implemented | Load-managed LLM primary with confidence gating and fallback |
 | Dependency & Risk Engine    | Implemented | Deterministic worker consumes `classified-events` and emits `risk-evaluations` |
@@ -68,6 +75,7 @@ External Inputs (manual/weather/news adapters)
 
 | Stream              | Description                                     |
 | ------------------- | ----------------------------------------------- |
+| `raw-input-signals` | Durable intake stream for unnormalized signal payloads |
 | `external-signals`  | Raw normalized ingestion events                 |
 | `classified-events` | Structured risks (produced by risk classification) |
 | `risk-evaluations`  | Deterministic risk outputs from risk engine      |
@@ -91,13 +99,15 @@ External Inputs (manual/weather/news adapters)
 
 1. Configure env from `.env.example`.
 2. Start Redis: `npm run infra:up`.
-3. Run LLM adapter (LLM mode): `npm run adapter:risk-classification-llm`.
-4. Run ingestion demo: `npm run dev`.
-5. Run classification worker: `npm run worker:risk-classification`.
-6. Run risk engine worker: `npm run worker:risk-engine`.
-7. Run unit tests: `npm test`.
-8. Run integration tests: `npm run test:integration`.
-9. Stop Redis: `npm run infra:down`.
+3. Run input gateway: `npm run gateway:signal-ingestion`.
+4. Run ingestion worker: `npm run worker:signal-ingestion`.
+5. Run LLM adapter (LLM mode): `npm run adapter:risk-classification-llm`.
+6. Run classification worker: `npm run worker:risk-classification`.
+7. Run risk engine worker: `npm run worker:risk-engine`.
+8. Send input events to `/signals` or run demo producer: `npm run producer:sample-input`.
+9. Run unit tests: `npm test`.
+10. Run integration tests: `npm run test:integration`.
+11. Stop Redis: `npm run infra:down`.
 
 ---
 

@@ -12,11 +12,14 @@ Current production path publishes to Redis Streams.
 | Responsibility | File |
 |---------------|------|
 | Main orchestration | `src/modules/signal-ingestion/service.ts` |
+| Streaming worker wrapper | `src/modules/signal-ingestion/worker.ts` |
+| Worker entrypoint | `src/workers/signal-ingestion-worker.ts` |
 | Schema normalization/validation | `src/modules/signal-ingestion/schema.ts` |
 | Source type constants | `src/modules/signal-ingestion/constants.ts` |
 | Retry utility | `src/modules/signal-ingestion/retry.ts` |
 | Manual simulation source | `src/modules/signal-ingestion/sources/manual-simulation-source.ts` |
 | Type contracts | `src/modules/signal-ingestion/types.ts` |
+| HTTP input gateway adapter | `src/adapters/signal-ingestion-gateway/` |
 
 ---
 
@@ -36,12 +39,14 @@ Current production path publishes to Redis Streams.
 ---
 
 ## Runtime Behavior
-1. Poll all configured sources.
-2. Normalize each raw signal into canonical schema.
-3. Queue non-duplicate events for publish.
-4. For each queued event, reserve idempotency key (`markIfFirstSeen`).
-5. Publish with retry policy.
-6. On publish failure, clear idempotency key and keep event pending.
+1. Receive raw events via `POST /signals` (gateway) or polling sources.
+2. Publish raw payloads durably into `raw-input-signals`.
+3. Ingestion worker consumes `raw-input-signals`.
+4. Normalize each raw signal into canonical schema.
+5. Queue non-duplicate events for publish.
+6. For each queued event, reserve idempotency key (`markIfFirstSeen`).
+7. Publish normalized signals to `external-signals` with retry policy.
+8. On publish failure, clear idempotency key and keep event pending.
 
 ---
 
@@ -74,3 +79,25 @@ The app demo service (`src/playground/manual-ingestion-demo-service.ts`) does th
 - Reads and prints recent persisted records from `external-signals`.
 
 This behavior is intentionally production-aligned (no runtime in-memory fallback).
+
+Streaming demo path:
+1. Start all services: `npm run services:all`
+2. Submit sample input: `npm run producer:sample-input`
+3. Inspect stream outputs with your stream inspector command.
+
+## HTTP Gateway Contract
+Accepted endpoints:
+- `POST /signals`
+- `POST /v1/signals`
+
+Accepted request payloads:
+- Single signal object
+- `{ "signal": { ... } }`
+- `{ "signals": [ ... ] }`
+- Array of signal objects
+
+Response:
+- `202` with accepted count and raw stream ids.
+
+Security:
+- Optional bearer token via `SIGNAL_INGESTION_GATEWAY_AUTH_TOKEN`.

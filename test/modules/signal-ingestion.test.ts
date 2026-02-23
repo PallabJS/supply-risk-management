@@ -236,3 +236,26 @@ test("clears idempotency key when publish fails", async () => {
   assert.equal(summary.pending, 1);
   assert.equal(clearCalls, 1);
 });
+
+test("ingests raw signals directly for stream-consumer workflows", async () => {
+  const eventBus = new InMemoryEventBus();
+  const service = new SignalIngestionService({
+    sources: [],
+    eventBus
+  });
+
+  const summary = await service.ingestSignals([
+    {
+      sourceType: SourceTypes.SOCIAL,
+      content: "Unverified post reports supplier outage",
+      sourceReference: "social://thread/1122",
+      region: "US-WA",
+      confidence: 0.58
+    }
+  ]);
+
+  assert.equal(summary.polled, 1);
+  assert.equal(summary.published, 1);
+  assert.equal(summary.failed, 0);
+  assert.equal(eventBus.readStream(EventStreams.EXTERNAL_SIGNALS).length, 1);
+});

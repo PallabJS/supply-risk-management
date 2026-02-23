@@ -20,6 +20,14 @@ Defaults:
 - `REDIS_CONSUMER_BATCH_SIZE=50`
 - `REDIS_MAX_DELIVERIES=5`
 - `DEV_STREAM_PRINT_LIMIT=25`
+- `SIGNAL_INGESTION_CONSUMER_GROUP=signal-ingestion-group`
+- `SIGNAL_INGESTION_CONSUMER_NAME=` (optional)
+- `SIGNAL_INGESTION_GATEWAY_HOST=127.0.0.1`
+- `SIGNAL_INGESTION_GATEWAY_PORT=8090`
+- `SIGNAL_INGESTION_GATEWAY_MAX_REQUEST_BYTES=1048576`
+- `SIGNAL_INGESTION_GATEWAY_MAX_SIGNALS_PER_REQUEST=500`
+- `SIGNAL_INGESTION_GATEWAY_AUTH_TOKEN=` (optional)
+- `SIGNAL_INGESTION_GATEWAY_URL=http://127.0.0.1:8090/signals` (used by sample producer script)
 - `RISK_CLASSIFICATION_PRIMARY_CLASSIFIER=RULE_BASED`
 - `RISK_CLASSIFICATION_CONSUMER_GROUP=risk-classification-group`
 - `RISK_CLASSIFICATION_CONSUMER_NAME=` (optional)
@@ -27,7 +35,7 @@ Defaults:
 - `RISK_CLASSIFICATION_MODEL_VERSION=risk-classification-v1`
 - `RISK_CLASSIFICATION_LLM_ENDPOINT=` (required when classifier mode is `LLM`)
 - `RISK_CLASSIFICATION_LLM_API_KEY=` (optional)
-- `RISK_CLASSIFICATION_LLM_MODEL=local-risk-llm-v1`
+- `RISK_CLASSIFICATION_LLM_MODEL=llama3.1:8b`
 - `RISK_CLASSIFICATION_LLM_TIMEOUT_MS=8000`
 - `RISK_CLASSIFICATION_LLM_MAX_CONCURRENCY=8`
 - `RISK_CLASSIFICATION_LLM_MAX_QUEUE_SIZE=500`
@@ -37,7 +45,7 @@ Defaults:
 - `LLM_ADAPTER_PORT=8088`
 - `LLM_ADAPTER_UPSTREAM_BASE_URL=http://localhost:11434`
 - `LLM_ADAPTER_UPSTREAM_API_KEY=` (optional)
-- `LLM_ADAPTER_DEFAULT_MODEL=llama3.1:8b-instruct`
+- `LLM_ADAPTER_DEFAULT_MODEL=llama3.1:8b`
 - `LLM_ADAPTER_REQUEST_TIMEOUT_MS=15000`
 - `LLM_ADAPTER_MAX_CONCURRENCY=8`
 - `LLM_ADAPTER_MAX_QUEUE_SIZE=500`
@@ -71,9 +79,13 @@ Compose file: `docker-compose.yml`
 | Command | Purpose |
 |--------|---------|
 | `npm run dev` | Run app directly from TS sources |
+| `npm run gateway:signal-ingestion` | Run HTTP gateway for input streaming (`POST /signals`) |
+| `npm run worker:signal-ingestion` | Run signal ingestion worker (`raw-input-signals` -> `external-signals`) |
 | `npm run adapter:risk-classification-llm` | Run local `/classify` adapter for OpenAI-compatible LLM backends |
 | `npm run worker:risk-classification` | Run risk classification worker |
 | `npm run worker:risk-engine` | Run risk engine worker |
+| `npm run services:all` | Start gateway + ingestion/classification/engine workers + LLM adapter |
+| `npm run producer:sample-input` | Submit a sample event to the ingestion gateway |
 | `npm run build` | Compile TS to `dist/` |
 | `npm start` | Build then run compiled app |
 | `npm run typecheck` | Strict TS type validation |

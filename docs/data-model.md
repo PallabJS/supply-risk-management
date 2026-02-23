@@ -59,6 +59,7 @@
 
 | Stream | Key fields in payload |
 |------|-------------------------|
+| `raw-input-signals` | Raw ingestion payload as submitted by gateway/polling adapters |
 | `external-signals` | `event_id`, `source_type`, `raw_content`, `geographic_scope`, `signal_confidence` |
 | `classified-events` | `classification_id`, `event_id`, `event_type`, `severity_level`, `classification_confidence` |
 | `risk-evaluations` | `risk_id`, `classification_id`, `risk_score`, `risk_level`, `estimated_revenue_exposure` |

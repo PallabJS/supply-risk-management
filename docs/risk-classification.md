@@ -74,7 +74,7 @@ Primary LLM load controls:
 Expected LLM endpoint request shape:
 ```json
 {
-  "model": "local-risk-llm-v1",
+  "model": "llama3.1:8b",
   "response_format": "structured-risk-draft-v1",
   "signal": { "...ExternalSignal fields..." },
   "instructions": "Classify supply-chain risk and return only JSON fields for StructuredRiskDraft."

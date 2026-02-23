@@ -6,6 +6,8 @@ export interface AppConfig {
   redisConsumerBatchSize: number;
   redisMaxDeliveries: number;
   devStreamPrintLimit: number;
+  signalIngestionConsumerGroup: string;
+  signalIngestionConsumerName: string | undefined;
   riskClassificationPrimaryClassifier: "RULE_BASED" | "LLM";
   riskClassificationConsumerGroup: string;
   riskClassificationConsumerName: string | undefined;
@@ -145,6 +147,12 @@ export function loadConfig(env: EnvSource = process.env): AppConfig {
       25,
       "DEV_STREAM_PRINT_LIMIT",
     ),
+    signalIngestionConsumerGroup:
+      parseOptionalString(env.SIGNAL_INGESTION_CONSUMER_GROUP) ??
+      "signal-ingestion-group",
+    signalIngestionConsumerName: parseOptionalString(
+      env.SIGNAL_INGESTION_CONSUMER_NAME,
+    ),
     riskClassificationPrimaryClassifier,
     riskClassificationConsumerGroup:
       parseOptionalString(env.RISK_CLASSIFICATION_CONSUMER_GROUP) ??
@@ -166,7 +174,7 @@ export function loadConfig(env: EnvSource = process.env): AppConfig {
     ),
     riskClassificationLlmModel:
       parseOptionalString(env.RISK_CLASSIFICATION_LLM_MODEL) ??
-      "local-risk-llm-v1",
+      "llama3.1:8b",
     riskClassificationLlmTimeoutMs: parsePositiveInt(
       env.RISK_CLASSIFICATION_LLM_TIMEOUT_MS,
       8_000,

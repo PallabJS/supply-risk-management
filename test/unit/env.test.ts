@@ -15,6 +15,8 @@ test("loads config with defaults", () => {
   assert.equal(config.redisConsumerBatchSize, 50);
   assert.equal(config.redisMaxDeliveries, 5);
   assert.equal(config.devStreamPrintLimit, 25);
+  assert.equal(config.signalIngestionConsumerGroup, "signal-ingestion-group");
+  assert.equal(config.signalIngestionConsumerName, undefined);
   assert.equal(config.riskClassificationPrimaryClassifier, "RULE_BASED");
   assert.equal(config.riskClassificationConsumerGroup, "risk-classification-group");
   assert.equal(config.riskClassificationConsumerName, undefined);
@@ -22,7 +24,7 @@ test("loads config with defaults", () => {
   assert.equal(config.riskClassificationModelVersion, "risk-classification-v1");
   assert.equal(config.riskClassificationLlmEndpoint, undefined);
   assert.equal(config.riskClassificationLlmApiKey, undefined);
-  assert.equal(config.riskClassificationLlmModel, "local-risk-llm-v1");
+  assert.equal(config.riskClassificationLlmModel, "llama3.1:8b");
   assert.equal(config.riskClassificationLlmTimeoutMs, 8_000);
   assert.equal(config.riskClassificationLlmMaxConcurrency, 8);
   assert.equal(config.riskClassificationLlmMaxQueueSize, 500);
@@ -43,6 +45,8 @@ test("loads config with custom values", () => {
     REDIS_CONSUMER_BATCH_SIZE: "20",
     REDIS_MAX_DELIVERIES: "8",
     DEV_STREAM_PRINT_LIMIT: "10",
+    SIGNAL_INGESTION_CONSUMER_GROUP: "ingestion-group-a",
+    SIGNAL_INGESTION_CONSUMER_NAME: "ingestion-worker-1",
     RISK_CLASSIFICATION_PRIMARY_CLASSIFIER: "LLM",
     RISK_CLASSIFICATION_CONSUMER_GROUP: "risk-group-a",
     RISK_CLASSIFICATION_CONSUMER_NAME: "risk-worker-1",
@@ -69,6 +73,8 @@ test("loads config with custom values", () => {
   assert.equal(config.redisConsumerBatchSize, 20);
   assert.equal(config.redisMaxDeliveries, 8);
   assert.equal(config.devStreamPrintLimit, 10);
+  assert.equal(config.signalIngestionConsumerGroup, "ingestion-group-a");
+  assert.equal(config.signalIngestionConsumerName, "ingestion-worker-1");
   assert.equal(config.riskClassificationPrimaryClassifier, "LLM");
   assert.equal(config.riskClassificationConsumerGroup, "risk-group-a");
   assert.equal(config.riskClassificationConsumerName, "risk-worker-1");

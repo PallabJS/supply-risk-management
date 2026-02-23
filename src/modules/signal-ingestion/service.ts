@@ -48,8 +48,8 @@ export class SignalIngestionService {
     if (!eventBus || typeof eventBus.publish !== "function") {
       throw new Error("SignalIngestionService requires an eventBus.publish method");
     }
-    if (!Array.isArray(sources) || sources.length === 0) {
-      throw new Error("SignalIngestionService requires at least one source");
+    if (!Array.isArray(sources)) {
+      throw new Error("SignalIngestionService sources must be an array");
     }
 
     this.sources = sources;
@@ -65,7 +65,7 @@ export class SignalIngestionService {
     return this.pendingEvents.length;
   }
 
-  async runCycle(): Promise<IngestionSummary> {
+  async ingestSignals(rawEvents: RawExternalSignal[]): Promise<IngestionSummary> {
     const summary: IngestionSummary = {
       polled: 0,
       queued: 0,
@@ -76,34 +76,16 @@ export class SignalIngestionService {
     };
 
     const pendingEventIds = new Set(this.pendingEvents.map((event) => event.event_id));
-
-    for (const source of this.sources) {
-      if (!source || typeof source.poll !== "function") {
-        throw new Error("Each source must implement an async poll() method");
-      }
-
-      let rawEvents: RawExternalSignal[] = [];
-      try {
-        rawEvents = (await source.poll()) ?? [];
-      } catch (error) {
-        this.logger.warn("source poll failed", {
-          source: source.constructor?.name ?? "unknown-source",
-          error: errorMessage(error)
-        });
+    for (const rawEvent of rawEvents) {
+      summary.polled += 1;
+      const normalized = normalizeRawSignal(rawEvent);
+      if (pendingEventIds.has(normalized.event_id)) {
+        summary.skipped_deduplicated += 1;
         continue;
       }
-
-      for (const rawEvent of rawEvents) {
-        summary.polled += 1;
-        const normalized = normalizeRawSignal(rawEvent);
-        if (pendingEventIds.has(normalized.event_id)) {
-          summary.skipped_deduplicated += 1;
-          continue;
-        }
-        this.pendingEvents.push(normalized);
-        pendingEventIds.add(normalized.event_id);
-        summary.queued += 1;
-      }
+      this.pendingEvents.push(normalized);
+      pendingEventIds.add(normalized.event_id);
+      summary.queued += 1;
     }
 
     const stillPending: ExternalSignal[] = [];
@@ -150,5 +132,27 @@ export class SignalIngestionService {
     this.pendingEvents = stillPending;
     summary.pending = this.pendingEvents.length;
     return summary;
+  }
+
+  async runCycle(): Promise<IngestionSummary> {
+    const polledRawEvents: RawExternalSignal[] = [];
+
+    for (const source of this.sources) {
+      if (!source || typeof source.poll !== "function") {
+        throw new Error("Each source must implement an async poll() method");
+      }
+
+      try {
+        const rawEvents = (await source.poll()) ?? [];
+        polledRawEvents.push(...rawEvents);
+      } catch (error) {
+        this.logger.warn("source poll failed", {
+          source: source.constructor?.name ?? "unknown-source",
+          error: errorMessage(error)
+        });
+      }
+    }
+
+    return this.ingestSignals(polledRawEvents);
   }
 }

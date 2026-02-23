@@ -90,3 +90,11 @@ Decoded runtime shape:
 - Consumer block timeout: `REDIS_CONSUMER_BLOCK_MS=5000`
 - Consumer batch size: `REDIS_CONSUMER_BATCH_SIZE=50`
 - Max deliveries before DLQ: `REDIS_MAX_DELIVERIES=5`
+
+Canonical application streams:
+- `raw-input-signals`
+- `external-signals`
+- `classified-events`
+- `risk-evaluations`
+- `mitigation-plans` (planned producer)
+- `notifications` (planned producer)
