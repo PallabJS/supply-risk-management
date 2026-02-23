@@ -30,7 +30,7 @@ type EnvSource = NodeJS.ProcessEnv | Record<string, string | undefined>;
 function parsePositiveInt(
   value: string | undefined,
   fallback: number,
-  variableName: string
+  variableName: string,
 ): number {
   if (value == null || value === "") {
     return fallback;
@@ -46,7 +46,7 @@ function parsePositiveInt(
 function parseNonNegativeInt(
   value: string | undefined,
   fallback: number,
-  variableName: string
+  variableName: string,
 ): number {
   if (value == null || value === "") {
     return fallback;
@@ -62,7 +62,7 @@ function parseNonNegativeInt(
 function parseConfidence(
   value: string | undefined,
   fallback: number,
-  variableName: string
+  variableName: string,
 ): number {
   if (value == null || value === "") {
     return fallback;
@@ -87,7 +87,9 @@ function parseClassifierMode(value: string | undefined): "RULE_BASED" | "LLM" {
   if (normalized === "RULE_BASED" || normalized === "LLM") {
     return normalized;
   }
-  throw new Error('RISK_CLASSIFICATION_PRIMARY_CLASSIFIER must be "RULE_BASED" or "LLM"');
+  throw new Error(
+    'RISK_CLASSIFICATION_PRIMARY_CLASSIFIER must be "RULE_BASED" or "LLM"',
+  );
 }
 
 export function loadConfig(env: EnvSource = process.env): AppConfig {
@@ -97,13 +99,18 @@ export function loadConfig(env: EnvSource = process.env): AppConfig {
   }
 
   const riskClassificationPrimaryClassifier = parseClassifierMode(
-    env.RISK_CLASSIFICATION_PRIMARY_CLASSIFIER
+    env.RISK_CLASSIFICATION_PRIMARY_CLASSIFIER,
   );
   const riskClassificationLlmEndpoint = parseOptionalString(
-    env.RISK_CLASSIFICATION_LLM_ENDPOINT
+    env.RISK_CLASSIFICATION_LLM_ENDPOINT,
   );
-  if (riskClassificationPrimaryClassifier === "LLM" && !riskClassificationLlmEndpoint) {
-    throw new Error("RISK_CLASSIFICATION_LLM_ENDPOINT is required when LLM classifier is enabled");
+  if (
+    riskClassificationPrimaryClassifier === "LLM" &&
+    !riskClassificationLlmEndpoint
+  ) {
+    throw new Error(
+      "RISK_CLASSIFICATION_LLM_ENDPOINT is required when LLM classifier is enabled",
+    );
   }
 
   return {
@@ -111,51 +118,51 @@ export function loadConfig(env: EnvSource = process.env): AppConfig {
     redisStreamMaxLen: parsePositiveInt(
       env.REDIS_STREAM_MAXLEN,
       100_000,
-      "REDIS_STREAM_MAXLEN"
+      "REDIS_STREAM_MAXLEN",
     ),
     redisDedupTtlSeconds: parsePositiveInt(
       env.REDIS_DEDUP_TTL_SECONDS,
       604_800,
-      "REDIS_DEDUP_TTL_SECONDS"
+      "REDIS_DEDUP_TTL_SECONDS",
     ),
     redisConsumerBlockMs: parsePositiveInt(
       env.REDIS_CONSUMER_BLOCK_MS,
       5_000,
-      "REDIS_CONSUMER_BLOCK_MS"
+      "REDIS_CONSUMER_BLOCK_MS",
     ),
     redisConsumerBatchSize: parsePositiveInt(
       env.REDIS_CONSUMER_BATCH_SIZE,
       50,
-      "REDIS_CONSUMER_BATCH_SIZE"
+      "REDIS_CONSUMER_BATCH_SIZE",
     ),
     redisMaxDeliveries: parsePositiveInt(
       env.REDIS_MAX_DELIVERIES,
       5,
-      "REDIS_MAX_DELIVERIES"
+      "REDIS_MAX_DELIVERIES",
     ),
     devStreamPrintLimit: parsePositiveInt(
       env.DEV_STREAM_PRINT_LIMIT,
       25,
-      "DEV_STREAM_PRINT_LIMIT"
+      "DEV_STREAM_PRINT_LIMIT",
     ),
     riskClassificationPrimaryClassifier,
     riskClassificationConsumerGroup:
       parseOptionalString(env.RISK_CLASSIFICATION_CONSUMER_GROUP) ??
       "risk-classification-group",
     riskClassificationConsumerName: parseOptionalString(
-      env.RISK_CLASSIFICATION_CONSUMER_NAME
+      env.RISK_CLASSIFICATION_CONSUMER_NAME,
     ),
     riskClassificationConfidenceThreshold: parseConfidence(
       env.RISK_CLASSIFICATION_CONFIDENCE_THRESHOLD,
       0.65,
-      "RISK_CLASSIFICATION_CONFIDENCE_THRESHOLD"
+      "RISK_CLASSIFICATION_CONFIDENCE_THRESHOLD",
     ),
     riskClassificationModelVersion:
       parseOptionalString(env.RISK_CLASSIFICATION_MODEL_VERSION) ??
       "risk-classification-v1",
     riskClassificationLlmEndpoint,
     riskClassificationLlmApiKey: parseOptionalString(
-      env.RISK_CLASSIFICATION_LLM_API_KEY
+      env.RISK_CLASSIFICATION_LLM_API_KEY,
     ),
     riskClassificationLlmModel:
       parseOptionalString(env.RISK_CLASSIFICATION_LLM_MODEL) ??
@@ -163,37 +170,39 @@ export function loadConfig(env: EnvSource = process.env): AppConfig {
     riskClassificationLlmTimeoutMs: parsePositiveInt(
       env.RISK_CLASSIFICATION_LLM_TIMEOUT_MS,
       8_000,
-      "RISK_CLASSIFICATION_LLM_TIMEOUT_MS"
+      "RISK_CLASSIFICATION_LLM_TIMEOUT_MS",
     ),
     riskClassificationLlmMaxConcurrency: parsePositiveInt(
       env.RISK_CLASSIFICATION_LLM_MAX_CONCURRENCY,
       8,
-      "RISK_CLASSIFICATION_LLM_MAX_CONCURRENCY"
+      "RISK_CLASSIFICATION_LLM_MAX_CONCURRENCY",
     ),
     riskClassificationLlmMaxQueueSize: parsePositiveInt(
       env.RISK_CLASSIFICATION_LLM_MAX_QUEUE_SIZE,
       500,
-      "RISK_CLASSIFICATION_LLM_MAX_QUEUE_SIZE"
+      "RISK_CLASSIFICATION_LLM_MAX_QUEUE_SIZE",
     ),
     riskClassificationLlmMaxRetries: parseNonNegativeInt(
       env.RISK_CLASSIFICATION_LLM_MAX_RETRIES,
       2,
-      "RISK_CLASSIFICATION_LLM_MAX_RETRIES"
+      "RISK_CLASSIFICATION_LLM_MAX_RETRIES",
     ),
     riskClassificationLlmRetryBaseDelayMs: parsePositiveInt(
       env.RISK_CLASSIFICATION_LLM_RETRY_BASE_DELAY_MS,
       150,
-      "RISK_CLASSIFICATION_LLM_RETRY_BASE_DELAY_MS"
+      "RISK_CLASSIFICATION_LLM_RETRY_BASE_DELAY_MS",
     ),
     riskEngineConsumerGroup:
-      parseOptionalString(env.RISK_ENGINE_CONSUMER_GROUP) ?? "risk-engine-group",
+      parseOptionalString(env.RISK_ENGINE_CONSUMER_GROUP) ??
+      "risk-engine-group",
     riskEngineConsumerName: parseOptionalString(env.RISK_ENGINE_CONSUMER_NAME),
     riskEngineEvaluationVersion:
-      parseOptionalString(env.RISK_ENGINE_EVALUATION_VERSION) ?? "risk-engine-v1",
+      parseOptionalString(env.RISK_ENGINE_EVALUATION_VERSION) ??
+      "risk-engine-v1",
     riskEngineDailyRevenueBaseline: parsePositiveInt(
       env.RISK_ENGINE_DAILY_REVENUE_BASELINE,
       250_000,
-      "RISK_ENGINE_DAILY_REVENUE_BASELINE"
-    )
+      "RISK_ENGINE_DAILY_REVENUE_BASELINE",
+    ),
   };
 }
