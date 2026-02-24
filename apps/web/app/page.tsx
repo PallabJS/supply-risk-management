@@ -7,39 +7,34 @@
 import { useEffect, useState } from "react";
 import { DashboardHeader } from "@/components/Header";
 import { MetricsGrid, MetricCard } from "@/components/MetricCard";
-import {
-  RiskDistributionChart,
-  EventTypeChart,
-  ConnectorLatencyChart,
-  RiskTrendChart,
-} from "@/components/Charts";
-import {
-  RecentSignalsTable,
-  RecentEventsTable,
-  RecentRisksTable,
-  ConnectorMetricsTable,
-} from "@/components/Tables";
+import { OperationsRiskTable, buildOperationsRows } from "@/components/Tables";
 import type {
   Signal,
   ClassifiedEvent,
   RiskEvaluation,
-  ConnectorMetrics,
+  MitigationPlan,
+  RiskNotification,
 } from "@/lib/redis";
-import type { RiskSummary, EventSummary, ConnectorHealth } from "@/lib/metrics";
+import type {
+  RiskSummary,
+  EventSummary,
+  ConnectorHealth,
+  ActionSummary,
+} from "@/lib/metrics";
 
 interface DashboardData {
   signals: Signal[];
   events: ClassifiedEvent[];
   risks: RiskEvaluation[];
-  connectors: ConnectorMetrics[];
+  mitigations: MitigationPlan[];
+  notifications: RiskNotification[];
   riskSummary: RiskSummary;
   eventSummary: EventSummary;
   connectorHealth: ConnectorHealth;
+  actionSummary: ActionSummary;
   riskTrend: Array<{ time: string; count: number; avgScore: number }>;
   lastUpdated: string;
 }
-
-type DashboardTab = "overview" | "risks" | "signals" | "events" | "connectors";
 
 function formatInr(value: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -61,7 +56,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [tab, setTab] = useState<DashboardTab>("overview");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -130,23 +124,20 @@ export default function DashboardPage() {
   const lastUpdated = safeDate(data.lastUpdated);
   const attentionCount =
     data.riskSummary.criticalCount + data.riskSummary.highCount;
-
-  const topRegions = (() => {
-    const counts = new Map<string, number>();
-    for (const s of data.signals) {
-      const key = (s.geographic_scope || "").trim();
-      if (!key) continue;
-      counts.set(key, (counts.get(key) || 0) + 1);
-    }
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
-  })();
-
-  const connectorLatencyData = data.connectors.map((c) => ({
-    name: c.connectorName,
-    latency: c.averageLatencyMs,
-  }));
+  const operationsRows = buildOperationsRows(
+    data.risks,
+    data.mitigations,
+    data.notifications,
+  );
+  const averagePredictedDelay =
+    data.mitigations.length > 0
+      ? Math.round(
+          data.mitigations.reduce(
+            (sum, item) => sum + item.predicted_delay_hours,
+            0,
+          ) / data.mitigations.length,
+        )
+      : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -184,160 +175,45 @@ export default function DashboardPage() {
         {/* At-a-glance KPIs */}
         <MetricsGrid>
           <MetricCard
-            title="Risks (total)"
-            value={data.riskSummary.totalRisks}
+            title="Open Alerts"
+            value={data.actionSummary.openNotifications || attentionCount}
             icon="⚠️"
-            color="blue"
-            subtext={`Avg score: ${(data.riskSummary.averageRiskScore * 100).toFixed(0)}%`}
-            trend={{ label: "Live", direction: "flat" }}
+            color={data.actionSummary.openNotifications > 0 ? "red" : "green"}
+            subtext={`${data.actionSummary.criticalNotifications} critical • ${data.actionSummary.highNotifications} high`}
           />
           <MetricCard
-            title="Needs attention"
-            value={attentionCount}
-            icon="🔎"
-            color={attentionCount > 0 ? "red" : "green"}
-            subtext={
-              attentionCount > 0
-                ? `${data.riskSummary.criticalCount} critical • ${data.riskSummary.highCount} high`
-                : "No high/critical risks right now"
-            }
+            title="Predicted Delay"
+            value={`${averagePredictedDelay}h`}
+            icon="⏱️"
+            color="yellow"
+            subtext="Average delay across active mitigations"
           />
           <MetricCard
-            title="Signals ingested"
-            value={data.signals.length}
+            title="Action Plans"
+            value={data.mitigations.length}
             unit=""
-            icon="📡"
-            color="green"
-            subtext={`Classifier avg confidence: ${(data.eventSummary.averageConfidence * 100).toFixed(0)}%`}
+            icon="🛠️"
+            color="blue"
+            subtext={`Plan confidence ${(data.actionSummary.avgMitigationConfidence * 100).toFixed(0)}%`}
           />
           <MetricCard
-            title="Exposure estimate"
+            title="Exposure At Risk"
             value={formatInr(data.riskSummary.totalExposure)}
             icon="₹"
-            color="yellow"
-            subtext="Total estimated revenue exposure"
+            color="red"
+            subtext="Estimated revenue exposure on active lanes"
           />
         </MetricsGrid>
-
-        {/* Tabs */}
-        <div className="flex flex-wrap items-center gap-2 mb-6">
-          {(
-            [
-              ["overview", "Overview"],
-              ["risks", "Risks"],
-              ["signals", "Signals"],
-              ["events", "Events"],
-              ["connectors", "Connectors"],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium border transition shadow-sm ${
-                tab === key
-                  ? "bg-white border-slate-900/15 ring-1 ring-slate-900/10 text-slate-900"
-                  : "bg-white/70 border-gray-200 hover:bg-white"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-          {topRegions.length > 0 && (
-            <div className="ml-auto text-xs text-gray-600 hidden md:block">
-              Top regions:{" "}
-              <span className="font-medium text-gray-900">
-                {topRegions.map(([name, count]) => `${name} (${count})`).join(", ")}
-              </span>
-            </div>
-          )}
+        <div className="bg-white border border-gray-200/70 rounded-2xl p-5 shadow-sm mb-6">
+          <h2 className="text-lg font-semibold text-gray-900">Operational Summary</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Prioritized risk and mitigation recommendations for active routes.
+            Focus on severity, delay impact, exposure, and best next action.
+          </p>
         </div>
 
-        {tab === "overview" && (
-          <div className="space-y-6 mb-8">
-            {/* What needs attention */}
-            <div className="bg-white border border-gray-200/70 rounded-2xl p-6 shadow-sm animate-fade-in-up">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    What’s going on
-                  </h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    You’re looking at India-only signals, classified events, and risk evaluations.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-sm text-gray-700">
-                    <span className="font-semibold text-gray-900">
-                      {attentionCount}
-                    </span>{" "}
-                    items need attention
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                <div className="rounded-xl border border-gray-200/70 bg-gray-50 p-4">
-                  <div className="text-xs text-gray-500">Critical</div>
-                  <div className="text-2xl font-semibold text-gray-900 mt-1">
-                    {data.riskSummary.criticalCount}
-                  </div>
-                </div>
-                <div className="rounded-xl border border-gray-200/70 bg-gray-50 p-4">
-                  <div className="text-xs text-gray-500">High</div>
-                  <div className="text-2xl font-semibold text-gray-900 mt-1">
-                    {data.riskSummary.highCount}
-                  </div>
-                </div>
-                <div className="rounded-xl border border-gray-200/70 bg-gray-50 p-4">
-                  <div className="text-xs text-gray-500">Signals processed</div>
-                  <div className="text-2xl font-semibold text-gray-900 mt-1">
-                    {data.signals.length}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <RiskDistributionChart data={data.riskSummary.severityDistribution} />
-              <RiskTrendChart data={data.riskTrend} />
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <EventTypeChart data={data.eventSummary.eventTypeBreakdown} />
-              {connectorLatencyData.length > 0 ? (
-                <ConnectorLatencyChart data={connectorLatencyData} />
-              ) : (
-                <div className="bg-white border border-gray-200/70 rounded-2xl p-6 shadow-sm">
-                  <h3 className="text-base font-semibold text-gray-900 mb-1">
-                    Connector latency
-                  </h3>
-                  <p className="text-xs text-gray-500 mb-4">
-                    No connector latency metrics available yet.
-                  </p>
-                  <div className="text-sm text-gray-600">
-                    Once connector metrics are published, this chart will populate.
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Details */}
-        <div className="space-y-6 mb-8">
-          {tab === "risks" && <RecentRisksTable risks={data.risks} />}
-          {tab === "signals" && <RecentSignalsTable signals={data.signals} />}
-          {tab === "events" && <RecentEventsTable events={data.events} />}
-          {tab === "connectors" && (
-            <ConnectorMetricsTable connectors={data.connectors} />
-          )}
-
-          {/* Helpful default: show a compact stack on overview */}
-          {tab === "overview" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <RecentRisksTable risks={data.risks} />
-              <RecentSignalsTable signals={data.signals} />
-            </div>
-          )}
+        <div className="mb-8">
+          <OperationsRiskTable rows={operationsRows} />
         </div>
       </div>
     </div>

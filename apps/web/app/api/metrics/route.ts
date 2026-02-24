@@ -4,25 +4,30 @@ import {
   getClassifiedEventsFromStream,
   getRiskEvaluationsFromStream,
   getConnectorMetrics,
+  getMitigationPlansFromStream,
+  getNotificationsFromStream,
 } from "@/lib/redis";
 import {
   calculateRiskSummary,
   calculateEventSummary,
   calculateConnectorHealth,
   getRiskTrendData,
+  calculateActionSummary,
 } from "@/lib/metrics";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     // Fetch all data in parallel
-    const [signals, events, risks, connectors] = await Promise.all([
+    const [signals, events, risks, connectors, mitigations, notifications] = await Promise.all([
       getSignalsFromStream(100),
       getClassifiedEventsFromStream(100),
       getRiskEvaluationsFromStream(100),
       getConnectorMetrics(),
+      getMitigationPlansFromStream(100),
+      getNotificationsFromStream(100),
     ]);
 
     // Calculate summaries
@@ -30,6 +35,7 @@ export async function GET(request: Request) {
     const eventSummary = calculateEventSummary(events);
     const connectorHealth = calculateConnectorHealth(connectors);
     const riskTrend = getRiskTrendData(risks);
+    const actionSummary = calculateActionSummary(mitigations, notifications);
 
     return NextResponse.json(
       {
@@ -37,9 +43,12 @@ export async function GET(request: Request) {
         events,
         risks,
         connectors,
+        mitigations,
+        notifications,
         riskSummary,
         eventSummary,
         connectorHealth,
+        actionSummary,
         riskTrend,
         lastUpdated: new Date().toISOString(),
       },

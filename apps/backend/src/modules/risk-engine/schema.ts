@@ -6,6 +6,12 @@ import {
   type RiskLevel
 } from "./constants.js";
 import type { ClassifiedRiskInput, RiskEvaluation, RiskEvaluationDraft } from "./types.js";
+import {
+  RiskEventTypes,
+  VALID_RISK_EVENT_TYPES,
+  type RiskEventType
+} from "../risk-classification/constants.js";
+import { computeLaneRelevanceScore, resolveImpactedLanes } from "./lane-context.js";
 
 function isIsoTimestamp(value: unknown): value is string {
   return (
@@ -35,6 +41,12 @@ function assertNumberRange(field: string, value: unknown, min: number, max: numb
 
 function assertPositiveNumber(field: string, value: unknown): void {
   if (typeof value !== "number" || Number.isNaN(value) || value < 0) {
+    throw new Error(`Invalid "${field}" in risk evaluation schema`);
+  }
+}
+
+function assertStringArray(field: string, value: unknown): void {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
     throw new Error(`Invalid "${field}" in risk evaluation schema`);
   }
 }
@@ -182,6 +194,31 @@ function optionalString(value: unknown): string | undefined {
   return trimmed === "" ? undefined : trimmed;
 }
 
+function normalizeRiskEventType(value: unknown, classifiedRisk: ClassifiedRiskInput): RiskEventType {
+  const candidate = typeof value === "string" ? value.trim().toUpperCase() : "";
+  if (VALID_RISK_EVENT_TYPES.has(candidate as RiskEventType)) {
+    return candidate as RiskEventType;
+  }
+  if (VALID_RISK_EVENT_TYPES.has(classifiedRisk.event_type)) {
+    return classifiedRisk.event_type;
+  }
+  return RiskEventTypes.OTHER;
+}
+
+function normalizeExpectedDurationHours(value: unknown, classifiedRisk: ClassifiedRiskInput): number {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    return Math.round(value);
+  }
+  return Math.max(0, Math.round(classifiedRisk.expected_duration_hours));
+}
+
+function normalizeClassificationConfidence(value: unknown, classifiedRisk: ClassifiedRiskInput): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return clamp(value, 0, 1);
+  }
+  return clamp(classifiedRisk.classification_confidence, 0, 1);
+}
+
 export function assertRiskEvaluationSchema(value: unknown): asserts value is RiskEvaluation {
   if (!value || typeof value !== "object") {
     throw new Error("Risk evaluation payload must be an object");
@@ -190,6 +227,13 @@ export function assertRiskEvaluationSchema(value: unknown): asserts value is Ris
   const risk = value as RiskEvaluation;
   assertString("risk_id", risk.risk_id);
   assertString("classification_id", risk.classification_id);
+  assertString("event_type", risk.event_type);
+  if (!VALID_RISK_EVENT_TYPES.has(risk.event_type)) {
+    throw new Error(`Invalid "event_type" in risk evaluation schema: ${risk.event_type}`);
+  }
+  assertString("impact_region", risk.impact_region);
+  assertIntegerRange("expected_duration_hours", risk.expected_duration_hours, 0, 7200);
+  assertNumberRange("classification_confidence", risk.classification_confidence, 0, 1);
   assertString("factory_id", risk.factory_id);
   assertString("supplier_id", risk.supplier_id);
   assertIntegerRange("inventory_coverage_days", risk.inventory_coverage_days, 0, 3650);
@@ -200,6 +244,8 @@ export function assertRiskEvaluationSchema(value: unknown): asserts value is Ris
   if (!VALID_RISK_LEVELS.has(risk.risk_level)) {
     throw new Error(`Invalid "risk_level" in risk evaluation schema: ${risk.risk_level}`);
   }
+  assertStringArray("impacted_lanes", risk.impacted_lanes);
+  assertNumberRange("lane_relevance_score", risk.lane_relevance_score, 0, 1);
   assertPositiveNumber("estimated_revenue_exposure", risk.estimated_revenue_exposure);
   if (!isIsoTimestamp(risk.evaluation_timestamp_utc)) {
     throw new Error('Invalid "evaluation_timestamp_utc" in risk evaluation schema');
@@ -247,6 +293,17 @@ export function normalizeRiskEvaluation(
       optionalString(safeDraft.risk_id) ??
       deterministicUuidFromSeed(`${classificationId}:${options.evaluationVersion}`),
     classification_id: classificationId,
+    event_type: normalizeRiskEventType(safeDraft.event_type, classifiedRisk),
+    impact_region:
+      optionalString(safeDraft.impact_region) ?? classifiedRisk.impact_region,
+    expected_duration_hours: normalizeExpectedDurationHours(
+      safeDraft.expected_duration_hours,
+      classifiedRisk
+    ),
+    classification_confidence: roundTo(
+      normalizeClassificationConfidence(safeDraft.classification_confidence, classifiedRisk),
+      4
+    ),
     factory_id:
       optionalString(safeDraft.factory_id) ??
       optionalString(classifiedRisk.factory_id) ??
@@ -262,6 +319,26 @@ export function normalizeRiskEvaluation(
     severity_weight: roundTo(severityWeight, 4),
     risk_score: roundTo(riskScore, 4),
     risk_level: riskLevel,
+    impacted_lanes: Array.isArray(safeDraft.impacted_lanes)
+      ? safeDraft.impacted_lanes.filter(
+          (value): value is string => typeof value === "string" && value.trim() !== ""
+        )
+      : resolveImpactedLanes(classifiedRisk.impact_region),
+    lane_relevance_score: roundTo(
+      typeof safeDraft.lane_relevance_score === "number" &&
+        Number.isFinite(safeDraft.lane_relevance_score)
+        ? clamp(safeDraft.lane_relevance_score, 0, 1)
+        : computeLaneRelevanceScore(
+            optionalString(safeDraft.impact_region) ?? classifiedRisk.impact_region,
+            Array.isArray(safeDraft.impacted_lanes)
+              ? safeDraft.impacted_lanes.filter(
+                  (value): value is string =>
+                    typeof value === "string" && value.trim() !== ""
+                )
+              : resolveImpactedLanes(classifiedRisk.impact_region)
+          ),
+      4
+    ),
     estimated_revenue_exposure: normalizeEstimatedRevenueExposure(
       safeDraft.estimated_revenue_exposure,
       riskScore,

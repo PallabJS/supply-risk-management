@@ -1,6 +1,7 @@
 import { DEFAULT_RISK_LEVEL_THRESHOLDS, RiskLevels, type RiskLevel } from "./constants.js";
 import { deterministicUuidFromSeed } from "./schema.js";
 import type { ClassifiedRiskInput, RiskEvaluationDraft, RiskEvaluator } from "./types.js";
+import { computeLaneRelevanceScore, resolveImpactedLanes } from "./lane-context.js";
 
 export interface DeterministicRiskEvaluatorOptions {
   evaluationVersion?: string;
@@ -137,14 +138,20 @@ export class DeterministicRiskEvaluator implements RiskEvaluator {
 
     const durationDays = Math.max(1, Math.ceil(risk.expected_duration_hours / 24));
     const dailyRevenue = normalizeDailyRevenue(risk, this.dailyRevenueBaseline);
+    const impactedLanes = resolveImpactedLanes(risk.impact_region);
+    const laneRelevanceScore = computeLaneRelevanceScore(risk.impact_region, impactedLanes);
     const estimatedRevenueExposure =
-      dailyRevenue * durationDays * riskScore * operationalCriticality;
+      dailyRevenue * durationDays * riskScore * operationalCriticality * (0.7 + laneRelevanceScore * 0.3);
 
     return {
       risk_id: deterministicUuidFromSeed(
         `${risk.classification_id}:${this.evaluationVersion}`
       ),
       classification_id: risk.classification_id,
+      event_type: risk.event_type,
+      impact_region: risk.impact_region,
+      expected_duration_hours: risk.expected_duration_hours,
+      classification_confidence: roundTo(confidenceFactor, 4),
       factory_id: inferFactoryId(risk),
       supplier_id: inferSupplierId(risk),
       inventory_coverage_days: inventoryCoverageDays,
@@ -152,6 +159,8 @@ export class DeterministicRiskEvaluator implements RiskEvaluator {
       severity_weight: roundTo(severityWeight, 4),
       risk_score: roundTo(riskScore, 4),
       risk_level: resolveRiskLevel(riskScore),
+      impacted_lanes: impactedLanes,
+      lane_relevance_score: roundTo(laneRelevanceScore, 4),
       estimated_revenue_exposure: roundTo(Math.max(0, estimatedRevenueExposure), 2),
       evaluation_timestamp_utc: new Date().toISOString()
     };

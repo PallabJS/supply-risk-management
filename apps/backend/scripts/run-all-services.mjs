@@ -20,13 +20,8 @@ const services = [
     args: ["--import", "tsx", "src/workers/signal-ingestion-worker.ts"],
   },
   {
-    name: "weather-connector",
-    args: [
-      "--import",
-      "tsx",
-      "src/workers/universal-connector-worker.ts",
-      "weather-india",
-    ],
+    name: "connectors-all",
+    args: ["scripts/run-all-connectors.mjs"],
   },
   {
     name: "risk-classification-llm-adapter",
@@ -43,6 +38,14 @@ const services = [
   {
     name: "risk-engine-worker",
     args: ["--import", "tsx", "src/workers/risk-engine-worker.ts"],
+  },
+  {
+    name: "mitigation-planning-worker",
+    args: ["--import", "tsx", "src/workers/mitigation-planning-worker.ts"],
+  },
+  {
+    name: "notification-worker",
+    args: ["--import", "tsx", "src/workers/notification-worker.ts"],
   },
 ];
 

@@ -6,6 +6,8 @@ import type {
   RiskEvaluation,
   ClassifiedEvent,
   ConnectorMetrics,
+  MitigationPlan,
+  RiskNotification,
 } from "./redis";
 
 export interface RiskSummary {
@@ -38,6 +40,14 @@ export interface ConnectorHealth {
   totalItemsProcessed: number;
   failedOperations: number;
   averageLatency: number;
+}
+
+export interface ActionSummary {
+  openNotifications: number;
+  criticalNotifications: number;
+  highNotifications: number;
+  mitigationPlans: number;
+  avgMitigationConfidence: number;
 }
 
 export function calculateRiskSummary(risks: RiskEvaluation[]): RiskSummary {
@@ -209,4 +219,30 @@ export function getRiskTrendData(
       const bHours = parseInt(b.time.split("h")[0]);
       return bHours - aHours;
     });
+}
+
+export function calculateActionSummary(
+  mitigations: MitigationPlan[],
+  notifications: RiskNotification[],
+): ActionSummary {
+  let confidenceSum = 0;
+  for (const mitigation of mitigations) {
+    confidenceSum += mitigation.mitigation_confidence;
+  }
+
+  const criticalNotifications = notifications.filter(
+    (n) => n.status === "OPEN" && n.risk_level === "CRITICAL",
+  ).length;
+  const highNotifications = notifications.filter(
+    (n) => n.status === "OPEN" && n.risk_level === "HIGH",
+  ).length;
+
+  return {
+    openNotifications: notifications.filter((n) => n.status === "OPEN").length,
+    criticalNotifications,
+    highNotifications,
+    mitigationPlans: mitigations.length,
+    avgMitigationConfidence:
+      mitigations.length > 0 ? confidenceSum / mitigations.length : 0,
+  };
 }

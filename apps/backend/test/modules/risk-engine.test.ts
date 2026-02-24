@@ -60,6 +60,7 @@ test("evaluates and publishes risk evaluation with deterministic defaults", asyn
   const decision = await service.evaluateAndPublish(createClassifiedRisk());
   assert.equal(published.length, 1);
   assert.equal(decision.riskEvaluation.classification_id, "cls-1");
+  assert.equal(decision.riskEvaluation.event_type, "NEWS");
   assert.ok(decision.riskEvaluation.risk_score >= 0);
   assert.ok(decision.riskEvaluation.risk_score <= 1);
   assert.ok(decision.riskEvaluation.estimated_revenue_exposure > 0);
@@ -145,4 +146,29 @@ test("retries risk-evaluation publish on transient failures", async () => {
 
   await service.evaluateAndPublish(createClassifiedRisk());
   assert.equal(attempts, 3);
+});
+
+test("marks Mumbai to Bangalore lane relevance for Indian weather disruption", async () => {
+  const service = new RiskEngineService({
+    eventPublisher: {
+      async publish(_stream, message) {
+        return {
+          id: "1-0",
+          stream: EventStreams.RISK_EVALUATIONS,
+          message,
+          published_at_utc: new Date().toISOString()
+        };
+      }
+    }
+  });
+
+  const decision = await service.evaluateRisk(
+    createClassifiedRisk({
+      event_type: "WEATHER",
+      impact_region: "Maharashtra"
+    })
+  );
+
+  assert.ok(decision.riskEvaluation.impacted_lanes.includes("mumbai-bangalore"));
+  assert.ok(decision.riskEvaluation.lane_relevance_score >= 0.6);
 });

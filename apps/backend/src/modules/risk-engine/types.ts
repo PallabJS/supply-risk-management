@@ -2,6 +2,7 @@ import type { EventPublisher } from "../../infrastructure/event-bus/types.js";
 import type { StructuredRisk } from "../risk-classification/types.js";
 import type { Logger } from "../signal-ingestion/types.js";
 import type { RiskLevel } from "./constants.js";
+import type { RiskEventType } from "../risk-classification/constants.js";
 
 export interface ClassifiedRiskInput extends StructuredRisk {
   factory_id?: string;
@@ -14,6 +15,10 @@ export interface ClassifiedRiskInput extends StructuredRisk {
 export interface RiskEvaluation {
   risk_id: string;
   classification_id: string;
+  event_type: RiskEventType;
+  impact_region: string;
+  expected_duration_hours: number;
+  classification_confidence: number;
   factory_id: string;
   supplier_id: string;
   inventory_coverage_days: number;
@@ -21,6 +26,8 @@ export interface RiskEvaluation {
   severity_weight: number;
   risk_score: number;
   risk_level: RiskLevel;
+  impacted_lanes: string[];
+  lane_relevance_score: number;
   estimated_revenue_exposure: number;
   evaluation_timestamp_utc: string;
 }
@@ -28,6 +35,10 @@ export interface RiskEvaluation {
 export interface RiskEvaluationDraft {
   risk_id?: string;
   classification_id?: string;
+  event_type?: string;
+  impact_region?: string;
+  expected_duration_hours?: number;
+  classification_confidence?: number;
   factory_id?: string;
   supplier_id?: string;
   inventory_coverage_days?: number;
@@ -35,6 +46,8 @@ export interface RiskEvaluationDraft {
   severity_weight?: number;
   risk_score?: number;
   risk_level?: string;
+  impacted_lanes?: string[];
+  lane_relevance_score?: number;
   estimated_revenue_exposure?: number;
   evaluation_timestamp_utc?: string;
   [key: string]: unknown;

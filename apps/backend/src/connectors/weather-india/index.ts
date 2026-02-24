@@ -45,7 +45,9 @@ export function createIndianWeatherConnector(
     requestTimeoutMs: config.requestTimeoutMs,
     userAgent:
       (providerConfig.userAgent as string) || "swarm-risk-management/0.1",
-    apiKey: (providerConfig.apiKey as string) || undefined,
+    ...((providerConfig.apiKey as string)
+      ? { apiKey: providerConfig.apiKey as string }
+      : {}),
   });
 
   // Create universal connector with Indian weather-specific configuration

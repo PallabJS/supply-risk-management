@@ -20,6 +20,29 @@
         "maxAlertsPerPoll": 50,
         "apiKey": "${WEATHER_API_KEY}"
       }
+    },
+    {
+      "name": "logistics-news-india",
+      "type": "INDIA_LOGISTICS_NEWS",
+      "enabled": true,
+      "pollIntervalMs": 300000,
+      "requestTimeoutMs": 12000,
+      "maxRetries": 2,
+      "outputStream": "raw-input-signals",
+      "leaseTtlSeconds": 30,
+      "retryConfig": {
+        "baseDelayMs": 150,
+        "maxDelayMs": 10000,
+        "jitterRatio": 0.1
+      },
+      "providerConfig": {
+        "baseUrl": "https://news.google.com/rss/search",
+        "query": "(Mumbai OR Bengaluru OR Bangalore OR Maharashtra OR Karnataka) (logistics OR supply chain OR transport OR highway OR port OR strike OR flood)",
+        "language": "en-IN",
+        "country": "IN",
+        "userAgent": "swarm-risk-management/0.1",
+        "maxItemsPerPoll": 25
+      }
     }
   ]
 }

@@ -34,6 +34,12 @@ test("loads config with defaults", () => {
   assert.equal(config.riskEngineConsumerName, undefined);
   assert.equal(config.riskEngineEvaluationVersion, "risk-engine-v1");
   assert.equal(config.riskEngineDailyRevenueBaseline, 250_000);
+  assert.equal(config.mitigationPlanningConsumerGroup, "mitigation-planning-group");
+  assert.equal(config.mitigationPlanningConsumerName, undefined);
+  assert.equal(config.notificationConsumerGroup, "notification-group");
+  assert.equal(config.notificationConsumerName, undefined);
+  assert.equal(config.notificationMinRiskScore, 0.65);
+  assert.equal(config.notificationMinLaneRelevanceScore, 0.6);
 });
 
 test("loads config with custom values", () => {
@@ -63,7 +69,13 @@ test("loads config with custom values", () => {
     RISK_ENGINE_CONSUMER_GROUP: "risk-engine-a",
     RISK_ENGINE_CONSUMER_NAME: "engine-worker-1",
     RISK_ENGINE_EVALUATION_VERSION: "risk-engine-v2",
-    RISK_ENGINE_DAILY_REVENUE_BASELINE: "750000"
+    RISK_ENGINE_DAILY_REVENUE_BASELINE: "750000",
+    MITIGATION_PLANNING_CONSUMER_GROUP: "mitigation-a",
+    MITIGATION_PLANNING_CONSUMER_NAME: "mitigation-worker-1",
+    NOTIFICATION_CONSUMER_GROUP: "notification-a",
+    NOTIFICATION_CONSUMER_NAME: "notification-worker-1",
+    NOTIFICATION_MIN_RISK_SCORE: "0.7",
+    NOTIFICATION_MIN_LANE_RELEVANCE_SCORE: "0.8"
   });
 
   assert.equal(config.redisUrl, "redis://localhost:6380");
@@ -92,6 +104,12 @@ test("loads config with custom values", () => {
   assert.equal(config.riskEngineConsumerName, "engine-worker-1");
   assert.equal(config.riskEngineEvaluationVersion, "risk-engine-v2");
   assert.equal(config.riskEngineDailyRevenueBaseline, 750_000);
+  assert.equal(config.mitigationPlanningConsumerGroup, "mitigation-a");
+  assert.equal(config.mitigationPlanningConsumerName, "mitigation-worker-1");
+  assert.equal(config.notificationConsumerGroup, "notification-a");
+  assert.equal(config.notificationConsumerName, "notification-worker-1");
+  assert.equal(config.notificationMinRiskScore, 0.7);
+  assert.equal(config.notificationMinLaneRelevanceScore, 0.8);
 });
 
 test("throws when REDIS_URL is missing", () => {

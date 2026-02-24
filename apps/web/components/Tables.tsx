@@ -1,390 +1,191 @@
-/**
- * Data Tables Components
- */
+import type { MitigationPlan, RiskEvaluation, RiskNotification } from "@/lib/redis";
 
-import type {
-  Signal,
-  ClassifiedEvent,
-  RiskEvaluation,
-  ConnectorMetrics,
-} from "@/lib/redis";
-
-interface RecentSignalsTableProps {
-  signals: Signal[];
+export interface OperationsRow {
+  riskId: string;
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  route: string;
+  trigger: string;
+  predictedDelayHours: number;
+  delayReductionHours: number;
+  estimatedCostInr: number;
+  estimatedExposureInr: number;
+  riskScore: number;
+  laneRelevanceScore: number;
+  mitigationConfidence: number;
+  actionTitle: string;
+  actionDescription: string;
+  timestamp?: string;
 }
 
-function safeJsonParse(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return undefined;
+function severityClass(severity: OperationsRow["severity"]): string {
+  switch (severity) {
+    case "CRITICAL":
+      return "bg-red-100 text-red-800 border-red-200";
+    case "HIGH":
+      return "bg-orange-100 text-orange-800 border-orange-200";
+    case "MEDIUM":
+      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    case "LOW":
+      return "bg-emerald-100 text-emerald-800 border-emerald-200";
   }
 }
 
-function extractSignalTitle(signal: Signal): string {
-  const raw = signal.raw_content || "";
-  const parsed = raw.trim().startsWith("{") ? safeJsonParse(raw) : undefined;
-  if (parsed && typeof parsed === "object") {
-    const obj = parsed as Record<string, unknown>;
-    if (typeof obj.title === "string" && obj.title.trim() !== "") {
-      return obj.title.trim();
-    }
-  }
-  return raw.trim() !== "" ? raw.trim().split("|")[0]?.trim() || "Signal" : "Signal";
+function formatInr(value: number): string {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
-function extractSignalSummary(signal: Signal): string {
-  const raw = signal.raw_content || "";
-  const parsed = raw.trim().startsWith("{") ? safeJsonParse(raw) : undefined;
-  if (parsed && typeof parsed === "object") {
-    const obj = parsed as Record<string, unknown>;
-    if (typeof obj.description === "string" && obj.description.trim() !== "") {
-      return obj.description.trim();
-    }
+function routeLabel(laneId?: string, fallbackRegion?: string): string {
+  if (laneId === "mumbai-bangalore") {
+    return "Mumbai -> Bangalore";
   }
-  const trimmed = raw.trim();
-  if (!trimmed) return "No details available";
-  return trimmed.length > 120 ? `${trimmed.slice(0, 120)}…` : trimmed;
+  if (laneId && laneId.trim() !== "" && laneId !== "general-india") {
+    return laneId;
+  }
+  if (fallbackRegion && fallbackRegion.trim() !== "") {
+    return fallbackRegion;
+  }
+  return "India corridor";
 }
 
-function formatTime(iso?: string): string {
+function minutesAgo(iso?: string): string {
   if (!iso) return "—";
   const ms = Date.parse(iso);
   if (!Number.isFinite(ms)) return "—";
-  return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const diffMin = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const hours = Math.floor(diffMin / 60);
+  return `${hours}h ${diffMin % 60}m ago`;
 }
 
-export function RecentSignalsTable({ signals }: RecentSignalsTableProps) {
-  return (
-    <div className="bg-white border border-gray-200/70 rounded-2xl overflow-hidden shadow-sm">
-      <div className="px-6 py-4 border-b border-gray-200/70 flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-gray-900">
-          Signals
-        </h3>
-        <span className="text-xs text-gray-500">{signals.length} total</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Signal</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Region</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Confidence</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            {signals.length === 0 ? (
-              <tr>
-                <td className="px-6 py-10 text-sm text-gray-500" colSpan={4}>
-                  No signals yet. Once connectors publish, you’ll see India-specific alerts here.
-                </td>
-              </tr>
-            ) : (
-              signals.slice(0, 10).map((signal) => (
-                <tr
-                  key={signal.event_id}
-                  className="border-b border-gray-200/70 hover:bg-gray-50 transition-colors"
-                >
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">
-                      {extractSignalTitle(signal)}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {extractSignalSummary(signal)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {signal.geographic_scope || "—"}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-20 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full transition-[width] duration-500"
-                          style={{ width: `${Math.round(signal.signal_confidence * 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-xs tabular-nums text-gray-600">
-                        {(signal.signal_confidence * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-xs text-gray-500">
-                    {formatTime(signal.timestamp)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-interface RecentEventsTableProps {
-  events: ClassifiedEvent[];
-}
-
-export function RecentEventsTable({ events }: RecentEventsTableProps) {
-  function getSeverityBadgeColor(
-    severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-  ) {
-    switch (severity) {
-      case "CRITICAL":
-        return "bg-red-100 text-red-800";
-      case "HIGH":
-        return "bg-orange-100 text-orange-800";
-      case "MEDIUM":
-        return "bg-yellow-100 text-yellow-800";
-      case "LOW":
-        return "bg-green-100 text-green-800";
+export function buildOperationsRows(
+  risks: RiskEvaluation[],
+  mitigations: MitigationPlan[],
+  notifications: RiskNotification[],
+): OperationsRow[] {
+  const mitigationByRiskId = new Map<string, MitigationPlan>();
+  for (const mitigation of mitigations) {
+    if (!mitigationByRiskId.has(mitigation.risk_id)) {
+      mitigationByRiskId.set(mitigation.risk_id, mitigation);
     }
   }
 
-  return (
-    <div className="bg-white border border-gray-200/70 rounded-2xl overflow-hidden shadow-sm">
-      <div className="px-6 py-4 border-b border-gray-200/70 flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-gray-900">Classified Events</h3>
-        <span className="text-xs text-gray-500">{events.length} total</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Type
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Severity
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Confidence
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Time
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.length === 0 ? (
-              <tr>
-                <td className="px-6 py-10 text-sm text-gray-500" colSpan={4}>
-                  No classified events yet. They appear after signals are processed by the classifier.
-                </td>
-              </tr>
-            ) : (
-              events.slice(0, 10).map((event) => (
-                <tr
-                  key={event.classification_id}
-                  className="border-b border-gray-200/70 hover:bg-gray-50 transition-colors"
-                >
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {event.event_type}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium border border-transparent ${getSeverityBadgeColor(
-                        event.severity_level,
-                      )}`}
-                    >
-                      {event.severity_level}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700 tabular-nums">
-                    {(event.classification_confidence * 100).toFixed(0)}%
-                  </td>
-                  <td className="px-6 py-4 text-xs text-gray-500">
-                    {formatTime(event.timestamp)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-interface RecentRisksTableProps {
-  risks: RiskEvaluation[];
-}
-
-export function RecentRisksTable({ risks }: RecentRisksTableProps) {
-  function getRiskBadgeColor(level: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL") {
-    switch (level) {
-      case "CRITICAL":
-        return "bg-red-100 text-red-800";
-      case "HIGH":
-        return "bg-orange-100 text-orange-800";
-      case "MEDIUM":
-        return "bg-yellow-100 text-yellow-800";
-      case "LOW":
-        return "bg-green-100 text-green-800";
+  const notificationByRiskId = new Map<string, RiskNotification>();
+  for (const notification of notifications) {
+    if (notification.status !== "OPEN") continue;
+    if (!notificationByRiskId.has(notification.risk_id)) {
+      notificationByRiskId.set(notification.risk_id, notification);
     }
   }
 
+  const rows: OperationsRow[] = [];
+  for (const risk of risks) {
+    if (risk.risk_level === "LOW") continue;
+
+    const mitigation = mitigationByRiskId.get(risk.risk_id);
+    if (!mitigation) continue;
+
+    const notification = notificationByRiskId.get(risk.risk_id);
+    const topAction = mitigation.recommended_actions[0];
+    if (!topAction) continue;
+
+    rows.push({
+      riskId: risk.risk_id,
+      severity: risk.risk_level,
+      route: routeLabel(mitigation.lane_id, risk.impact_region),
+      trigger: notification?.message || notification?.title || "Operational disruption detected",
+      predictedDelayHours: mitigation.predicted_delay_hours,
+      delayReductionHours: topAction.expected_delay_reduction_hours,
+      estimatedCostInr: topAction.estimated_cost_inr,
+      estimatedExposureInr: risk.estimated_revenue_exposure,
+      riskScore: risk.risk_score,
+      laneRelevanceScore: risk.lane_relevance_score || 0,
+      mitigationConfidence: mitigation.mitigation_confidence,
+      actionTitle: topAction.title,
+      actionDescription: topAction.description,
+      timestamp: notification?.timestamp || mitigation.timestamp || risk.timestamp,
+    });
+  }
+
+  return rows.sort((a, b) => {
+    const severityRank = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+    const rankDiff = severityRank[b.severity] - severityRank[a.severity];
+    if (rankDiff !== 0) return rankDiff;
+    return b.riskScore - a.riskScore;
+  });
+}
+
+interface OperationsRiskTableProps {
+  rows: OperationsRow[];
+}
+
+export function OperationsRiskTable({ rows }: OperationsRiskTableProps) {
   return (
     <div className="bg-white border border-gray-200/70 rounded-2xl overflow-hidden shadow-sm">
       <div className="px-6 py-4 border-b border-gray-200/70 flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-gray-900">Risk Evaluations</h3>
-        <span className="text-xs text-gray-500">{risks.length} total</span>
+        <h3 className="text-base font-semibold text-gray-900">Risk Action Board</h3>
+        <span className="text-xs text-gray-500">{rows.length} actionable rows</span>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div className="overflow-x-hidden">
+        <table className="w-full table-fixed">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Risk ID
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Level
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Score
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Exposure (INR)
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Time
-              </th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[8%]">Severity</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[11%]">Route</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[24%]">Risk Trigger</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[24%]">Best Action</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[9%]">Delay</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[11%]">Exposure</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[8%]">Confidence</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[5%]">Updated</th>
             </tr>
           </thead>
           <tbody>
-            {risks.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
-                <td className="px-6 py-10 text-sm text-gray-500" colSpan={5}>
-                  No risk evaluations yet. They appear after events are classified and evaluated.
+                <td className="px-6 py-10 text-sm text-gray-500" colSpan={8}>
+                  No actionable risks yet. Once disruptions are detected, this board will show route-level actions.
                 </td>
               </tr>
             ) : (
-              risks.slice(0, 10).map((risk) => (
-                <tr
-                  key={risk.risk_id}
-                  className="border-b border-gray-200/70 hover:bg-gray-50 transition-colors"
-                >
-                  <td className="px-6 py-4 text-sm text-gray-800 truncate font-mono">
-                    {risk.risk_id ? risk.risk_id.substring(0, 12) + "…" : "N/A"}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium ${getRiskBadgeColor(
-                        risk.risk_level,
-                      )}`}
-                    >
-                      {risk.risk_level}
+              rows.map((row) => (
+                <tr key={row.riskId} className="border-b border-gray-200/70 hover:bg-gray-50 transition-colors align-top">
+                  <td className="px-3 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${severityClass(row.severity)}`}>
+                      {row.severity}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-900 tabular-nums">
-                    {(risk.risk_score * 100).toFixed(0)}%
+                  <td className="px-3 py-3 text-sm font-medium text-gray-900 whitespace-normal break-words">{row.route}</td>
+                  <td className="px-3 py-3 text-sm text-gray-700 whitespace-normal break-words">
+                    {row.trigger}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-700 tabular-nums">
-                    {new Intl.NumberFormat("en-IN", {
-                      style: "currency",
-                      currency: "INR",
-                      maximumFractionDigits: 0,
-                    }).format(risk.estimated_revenue_exposure)}
+                  <td className="px-3 py-3 text-sm text-gray-900 whitespace-normal break-words">
+                    <div className="font-medium">{row.actionTitle}</div>
+                    <div className="text-xs text-gray-600 mt-1">{row.actionDescription}</div>
                   </td>
-                  <td className="px-6 py-4 text-xs text-gray-500">
-                    {formatTime(risk.timestamp)}
+                  <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">
+                    <div className="font-semibold">{row.predictedDelayHours}h</div>
+                    <div className="text-xs text-emerald-700">-{row.delayReductionHours}h possible</div>
                   </td>
+                  <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap font-semibold">
+                    {formatInr(row.estimatedExposureInr)}
+                    <div className="text-xs text-gray-600 mt-1">
+                      {formatInr(row.estimatedCostInr)} action cost
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-sm text-gray-800 whitespace-nowrap">
+                    <div>{(row.mitigationConfidence * 100).toFixed(0)}% plan</div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      {(row.riskScore * 100).toFixed(0)}% risk
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">{minutesAgo(row.timestamp)}</td>
                 </tr>
               ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-interface ConnectorMetricsTableProps {
-  connectors: ConnectorMetrics[];
-}
-
-export function ConnectorMetricsTable({
-  connectors,
-}: ConnectorMetricsTableProps) {
-  return (
-    <div className="bg-white border border-gray-200/70 rounded-2xl overflow-hidden shadow-sm">
-      <div className="px-6 py-4 border-b border-gray-200/70 flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-gray-900">Connectors</h3>
-        <span className="text-xs text-gray-500">{connectors.length} total</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Connector
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Success Rate
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Items
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Latency
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Last Poll
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {connectors.length === 0 ? (
-              <tr>
-                <td className="px-6 py-10 text-sm text-gray-500" colSpan={5}>
-                  No connector metrics yet.
-                </td>
-              </tr>
-            ) : (
-              connectors.map((connector) => {
-              const successRate =
-                connector.totalPolls > 0
-                  ? (
-                      (connector.successfulPolls / connector.totalPolls) *
-                      100
-                    ).toFixed(1)
-                  : "N/A";
-
-              return (
-                <tr
-                  key={connector.connectorName}
-                  className="border-b border-gray-200/70 hover:bg-gray-50 transition-colors"
-                >
-                  <td className="px-6 py-4 font-medium text-gray-800">
-                    {connector.connectorName}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        Number(successRate) >= 95
-                          ? "bg-green-100 text-green-800"
-                          : Number(successRate) >= 80
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {successRate}%
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">{connector.itemsPublished}</td>
-                  <td className="px-6 py-4">
-                    {connector.averageLatencyMs.toFixed(0)}ms
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">
-                    {connector.lastPollTime
-                      ? new Date(connector.lastPollTime).toLocaleTimeString()
-                      : "Never"}
-                  </td>
-                </tr>
-              );
-            })
             )}
           </tbody>
         </table>

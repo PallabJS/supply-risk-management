@@ -25,6 +25,12 @@ export interface AppConfig {
   riskEngineConsumerName: string | undefined;
   riskEngineEvaluationVersion: string;
   riskEngineDailyRevenueBaseline: number;
+  mitigationPlanningConsumerGroup: string;
+  mitigationPlanningConsumerName: string | undefined;
+  notificationConsumerGroup: string;
+  notificationConsumerName: string | undefined;
+  notificationMinRiskScore: number;
+  notificationMinLaneRelevanceScore: number;
 }
 
 type EnvSource = NodeJS.ProcessEnv | Record<string, string | undefined>;
@@ -211,6 +217,26 @@ export function loadConfig(env: EnvSource = process.env): AppConfig {
       env.RISK_ENGINE_DAILY_REVENUE_BASELINE,
       250_000,
       "RISK_ENGINE_DAILY_REVENUE_BASELINE",
+    ),
+    mitigationPlanningConsumerGroup:
+      parseOptionalString(env.MITIGATION_PLANNING_CONSUMER_GROUP) ??
+      "mitigation-planning-group",
+    mitigationPlanningConsumerName: parseOptionalString(
+      env.MITIGATION_PLANNING_CONSUMER_NAME,
+    ),
+    notificationConsumerGroup:
+      parseOptionalString(env.NOTIFICATION_CONSUMER_GROUP) ??
+      "notification-group",
+    notificationConsumerName: parseOptionalString(env.NOTIFICATION_CONSUMER_NAME),
+    notificationMinRiskScore: parseConfidence(
+      env.NOTIFICATION_MIN_RISK_SCORE,
+      0.65,
+      "NOTIFICATION_MIN_RISK_SCORE",
+    ),
+    notificationMinLaneRelevanceScore: parseConfidence(
+      env.NOTIFICATION_MIN_LANE_RELEVANCE_SCORE,
+      0.6,
+      "NOTIFICATION_MIN_LANE_RELEVANCE_SCORE",
     ),
   };
 }

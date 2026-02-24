@@ -101,6 +101,8 @@ npm run --workspace=apps/backend connector:run
 npm run --workspace=apps/backend adapter:risk-classification-llm
 npm run --workspace=apps/backend worker:risk-classification
 npm run --workspace=apps/backend worker:risk-engine
+npm run --workspace=apps/backend worker:mitigation-planning
+npm run --workspace=apps/backend worker:notification
 ```
 
 ## 🏗️ System Architecture
@@ -127,9 +129,17 @@ npm run --workspace=apps/backend worker:risk-engine
    - Business impact calculation
    - Publishes to `risk-evaluations` stream
 
-6. **Connectors**
+6. **Mitigation Planning Worker**
+   - Generates operational mitigation actions
+   - Publishes to `mitigation-plans` stream
+
+7. **Notification Worker**
+   - Generates actionable dashboard/ops notifications
+   - Publishes to `notifications` stream
+
+8. **Connectors**
    - Universal polling framework for 100+ data sources
-   - NOAA weather connector included
+   - India weather connector (`weather-india`) included
 
 ### Frontend Dashboard
 
@@ -167,6 +177,14 @@ External Sources (APIs, Webhooks)
            ↓
     risk-evaluations (Redis Stream)
            ↓
+   Mitigation Planning Worker
+           ↓
+    mitigation-plans (Redis Stream)
+           ↓
+     Notification Worker
+           ↓
+      notifications (Redis Stream)
+           ↓
     Dashboard (Frontend)
 ```
 
@@ -178,8 +196,8 @@ The system uses Redis Streams for durable, at-least-once message delivery:
 - `external-signals`: Normalized signals with confidence scores
 - `classified-events`: Risk-classified events
 - `risk-evaluations`: Final risk assessments with exposure calculations
-- `mitigation-plans`: Future stream for mitigation strategies
-- `notifications`: Future stream for stakeholder notifications
+- `mitigation-plans`: Mitigation plans with ranked actions and delay reduction estimates
+- `notifications`: Actionable alerts for dashboard + escalation channels
 
 ## 📈 Metrics
 

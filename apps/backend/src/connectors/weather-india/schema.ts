@@ -15,15 +15,19 @@ export function parseIndiaAlertsPayload(
 
   return payload.slice(0, maxAlerts).map((item: unknown) => {
     const obj = item as Record<string, unknown>;
+    const districts = Array.isArray(obj.districts)
+      ? obj.districts.filter((value): value is string => typeof value === "string")
+      : undefined;
+    const endTime = obj.endTime ? String(obj.endTime) : undefined;
     return {
       id: String(obj.id || crypto.randomUUID?.() || Date.now()),
       title: String(obj.title || obj.main || "Weather Alert"),
       description: String(obj.description || obj.description || ""),
       severity: normalizeSeverity(String(obj.severity || "Moderate")),
       state: String(obj.state || obj.region || ""),
-      districts: Array.isArray(obj.districts) ? obj.districts : undefined,
+      ...(districts ? { districts } : {}),
       startTime: String(obj.startTime || new Date().toISOString()),
-      endTime: obj.endTime ? String(obj.endTime) : undefined,
+      ...(endTime ? { endTime } : {}),
       source: obj.source === "imd" ? "imd" : "weather-api",
     };
   });
@@ -53,9 +57,11 @@ export function generateMockIndianAlerts(
   ];
 
   for (let i = 0; i < Math.min(count, 10); i++) {
-    const state = states[Math.floor(Math.random() * states.length)];
-    const alertType = alertTypes[Math.floor(Math.random() * alertTypes.length)];
-    const severity = severities[Math.floor(Math.random() * severities.length)];
+    const state = states[Math.floor(Math.random() * states.length)] || "India";
+    const alertType =
+      alertTypes[Math.floor(Math.random() * alertTypes.length)] || "Weather Alert";
+    const severity =
+      severities[Math.floor(Math.random() * severities.length)] || "Moderate";
 
     alerts.push({
       id: `india-${Date.now()}-${i}`,

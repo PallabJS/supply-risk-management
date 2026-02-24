@@ -10,6 +10,7 @@
 
 import { registerConnector } from "./connector-factory.js";
 import { createIndianWeatherConnector } from "../weather-india/index.js";
+import { createIndiaLogisticsNewsConnector } from "../logistics-news-india/index.js";
 
 /**
  * Register all built-in connectors.
@@ -18,6 +19,7 @@ import { createIndianWeatherConnector } from "../weather-india/index.js";
 export function registerBuiltInConnectors(): void {
   // Weather data
   registerConnector("INDIA_WEATHER", createIndianWeatherConnector);
+  registerConnector("INDIA_LOGISTICS_NEWS", createIndiaLogisticsNewsConnector);
 
   // TODO: Register other connectors as they are implemented
   // registerConnector("JIRA", createJiraConnector);
