@@ -6,6 +6,8 @@ import {
   getConnectorMetrics,
   getMitigationPlansFromStream,
   getNotificationsFromStream,
+  getAtRiskShipmentsFromStream,
+  getInventoryExposuresFromStream,
 } from "@/lib/redis";
 import {
   calculateRiskSummary,
@@ -21,13 +23,24 @@ export const revalidate = 0;
 export async function GET() {
   try {
     // Fetch all data in parallel
-    const [signals, events, risks, connectors, mitigations, notifications] = await Promise.all([
+    const [
+      signals,
+      events,
+      risks,
+      connectors,
+      mitigations,
+      notifications,
+      atRiskShipments,
+      inventoryExposures
+    ] = await Promise.all([
       getSignalsFromStream(100),
       getClassifiedEventsFromStream(100),
       getRiskEvaluationsFromStream(100),
       getConnectorMetrics(),
       getMitigationPlansFromStream(100),
       getNotificationsFromStream(100),
+      getAtRiskShipmentsFromStream(200),
+      getInventoryExposuresFromStream(200),
     ]);
 
     // Calculate summaries
@@ -45,6 +58,8 @@ export async function GET() {
         connectors,
         mitigations,
         notifications,
+        atRiskShipments,
+        inventoryExposures,
         riskSummary,
         eventSummary,
         connectorHealth,

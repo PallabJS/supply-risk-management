@@ -114,6 +114,39 @@ export interface RiskNotification {
   timestamp?: string;
 }
 
+export interface AtRiskShipment {
+  risk_id: string;
+  mitigation_id: string;
+  shipment_id: string;
+  po_number: string;
+  sku: string;
+  lane_id: string;
+  warehouse_id: string;
+  planned_eta_utc: string;
+  risk_adjusted_eta_utc: string;
+  delay_hours: number;
+  stockout_date_utc: string;
+  stockout_probability: number;
+  revenue_at_risk_inr: number;
+  required_action: string;
+  action_description: string;
+  risk_level: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  generated_at_utc: string;
+  timestamp?: string;
+}
+
+export interface InventoryExposure {
+  risk_id: string;
+  sku: string;
+  warehouse_id: string;
+  days_of_cover: number;
+  stockout_probability: number;
+  projected_stockout_date_utc: string;
+  revenue_at_risk_inr: number;
+  generated_at_utc: string;
+  timestamp?: string;
+}
+
 export interface ConnectorMetrics {
   connectorName: string;
   lastPollTime: string;
@@ -429,6 +462,116 @@ export async function getNotificationsFromStream(
     });
   } catch (error) {
     console.error("Error fetching notifications:", error);
+    return [];
+  }
+}
+
+export async function getAtRiskShipmentsFromStream(
+  limit: number = 100,
+): Promise<AtRiskShipment[]> {
+  try {
+    const client = await getRedisClient();
+    if (!client) {
+      return [];
+    }
+    const items = await client.xRevRange("at-risk-shipments", "+", "-", {
+      COUNT: limit,
+    });
+
+    return items.map((item) => {
+      const { payload, publishedAt, fallbackTimestamp } =
+        parseStreamPayload<Partial<AtRiskShipment>>(item);
+
+      const delayHours =
+        typeof payload.delay_hours === "number"
+          ? payload.delay_hours
+          : parseFloat(String(payload.delay_hours ?? "0"));
+      const stockoutProbability =
+        typeof payload.stockout_probability === "number"
+          ? payload.stockout_probability
+          : parseFloat(String(payload.stockout_probability ?? "0"));
+      const revenueAtRisk =
+        typeof payload.revenue_at_risk_inr === "number"
+          ? payload.revenue_at_risk_inr
+          : parseFloat(String(payload.revenue_at_risk_inr ?? "0"));
+
+      return {
+        risk_id: (payload.risk_id as string) || "unknown",
+        mitigation_id: (payload.mitigation_id as string) || "unknown",
+        shipment_id: (payload.shipment_id as string) || item.id,
+        po_number: (payload.po_number as string) || "unknown",
+        sku: (payload.sku as string) || "unknown",
+        lane_id: (payload.lane_id as string) || "unknown",
+        warehouse_id: (payload.warehouse_id as string) || "unknown",
+        planned_eta_utc: (payload.planned_eta_utc as string) || "",
+        risk_adjusted_eta_utc: (payload.risk_adjusted_eta_utc as string) || "",
+        delay_hours: Number.isFinite(delayHours) ? delayHours : 0,
+        stockout_date_utc: (payload.stockout_date_utc as string) || "",
+        stockout_probability: Number.isFinite(stockoutProbability)
+          ? stockoutProbability
+          : 0,
+        revenue_at_risk_inr: Number.isFinite(revenueAtRisk) ? revenueAtRisk : 0,
+        required_action: (payload.required_action as string) || "Review mitigation",
+        action_description: (payload.action_description as string) || "",
+        risk_level:
+          (payload.risk_level as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL") ||
+          "LOW",
+        generated_at_utc: (payload.generated_at_utc as string) || "",
+        timestamp: publishedAt || fallbackTimestamp,
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching at-risk shipments:", error);
+    return [];
+  }
+}
+
+export async function getInventoryExposuresFromStream(
+  limit: number = 100,
+): Promise<InventoryExposure[]> {
+  try {
+    const client = await getRedisClient();
+    if (!client) {
+      return [];
+    }
+    const items = await client.xRevRange("inventory-exposures", "+", "-", {
+      COUNT: limit,
+    });
+
+    return items.map((item) => {
+      const { payload, publishedAt, fallbackTimestamp } =
+        parseStreamPayload<Partial<InventoryExposure>>(item);
+
+      const daysOfCover =
+        typeof payload.days_of_cover === "number"
+          ? payload.days_of_cover
+          : parseFloat(String(payload.days_of_cover ?? "0"));
+      const stockoutProbability =
+        typeof payload.stockout_probability === "number"
+          ? payload.stockout_probability
+          : parseFloat(String(payload.stockout_probability ?? "0"));
+      const revenueAtRisk =
+        typeof payload.revenue_at_risk_inr === "number"
+          ? payload.revenue_at_risk_inr
+          : parseFloat(String(payload.revenue_at_risk_inr ?? "0"));
+
+      return {
+        risk_id: (payload.risk_id as string) || "unknown",
+        sku: (payload.sku as string) || "unknown",
+        warehouse_id: (payload.warehouse_id as string) || "unknown",
+        days_of_cover: Number.isFinite(daysOfCover) ? daysOfCover : 0,
+        stockout_probability: Number.isFinite(stockoutProbability)
+          ? stockoutProbability
+          : 0,
+        projected_stockout_date_utc:
+          (payload.projected_stockout_date_utc as string) || "",
+        revenue_at_risk_inr: Number.isFinite(revenueAtRisk) ? revenueAtRisk : 0,
+        generated_at_utc: (payload.generated_at_utc as string) || "",
+        timestamp: publishedAt || fallbackTimestamp,
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching inventory exposures:", error);
     return [];
   }
 }

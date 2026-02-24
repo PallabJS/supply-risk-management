@@ -40,6 +40,13 @@ test("loads config with defaults", () => {
   assert.equal(config.notificationConsumerName, undefined);
   assert.equal(config.notificationMinRiskScore, 0.65);
   assert.equal(config.notificationMinLaneRelevanceScore, 0.6);
+  assert.equal(config.planningGatewayHost, "127.0.0.1");
+  assert.equal(config.planningGatewayPort, 8091);
+  assert.equal(config.planningGatewayMaxRequestBytes, 1_048_576);
+  assert.equal(config.planningGatewayMaxRecordsPerRequest, 500);
+  assert.equal(config.planningGatewayAuthToken, undefined);
+  assert.equal(config.planningImpactConsumerGroup, "planning-impact-group");
+  assert.equal(config.planningImpactConsumerName, undefined);
 });
 
 test("loads config with custom values", () => {
@@ -75,7 +82,14 @@ test("loads config with custom values", () => {
     NOTIFICATION_CONSUMER_GROUP: "notification-a",
     NOTIFICATION_CONSUMER_NAME: "notification-worker-1",
     NOTIFICATION_MIN_RISK_SCORE: "0.7",
-    NOTIFICATION_MIN_LANE_RELEVANCE_SCORE: "0.8"
+    NOTIFICATION_MIN_LANE_RELEVANCE_SCORE: "0.8",
+    PLANNING_GATEWAY_HOST: "0.0.0.0",
+    PLANNING_GATEWAY_PORT: "19091",
+    PLANNING_GATEWAY_MAX_REQUEST_BYTES: "2048",
+    PLANNING_GATEWAY_MAX_RECORDS_PER_REQUEST: "50",
+    PLANNING_GATEWAY_AUTH_TOKEN: "planning-token",
+    PLANNING_IMPACT_CONSUMER_GROUP: "planning-impact-a",
+    PLANNING_IMPACT_CONSUMER_NAME: "planning-impact-worker-1"
   });
 
   assert.equal(config.redisUrl, "redis://localhost:6380");
@@ -110,6 +124,13 @@ test("loads config with custom values", () => {
   assert.equal(config.notificationConsumerName, "notification-worker-1");
   assert.equal(config.notificationMinRiskScore, 0.7);
   assert.equal(config.notificationMinLaneRelevanceScore, 0.8);
+  assert.equal(config.planningGatewayHost, "0.0.0.0");
+  assert.equal(config.planningGatewayPort, 19_091);
+  assert.equal(config.planningGatewayMaxRequestBytes, 2_048);
+  assert.equal(config.planningGatewayMaxRecordsPerRequest, 50);
+  assert.equal(config.planningGatewayAuthToken, "planning-token");
+  assert.equal(config.planningImpactConsumerGroup, "planning-impact-a");
+  assert.equal(config.planningImpactConsumerName, "planning-impact-worker-1");
 });
 
 test("throws when REDIS_URL is missing", () => {

@@ -31,6 +31,13 @@ export interface AppConfig {
   notificationConsumerName: string | undefined;
   notificationMinRiskScore: number;
   notificationMinLaneRelevanceScore: number;
+  planningGatewayHost: string;
+  planningGatewayPort: number;
+  planningGatewayMaxRequestBytes: number;
+  planningGatewayMaxRecordsPerRequest: number;
+  planningGatewayAuthToken: string | undefined;
+  planningImpactConsumerGroup: string;
+  planningImpactConsumerName: string | undefined;
 }
 
 type EnvSource = NodeJS.ProcessEnv | Record<string, string | undefined>;
@@ -238,5 +245,26 @@ export function loadConfig(env: EnvSource = process.env): AppConfig {
       0.6,
       "NOTIFICATION_MIN_LANE_RELEVANCE_SCORE",
     ),
+    planningGatewayHost: parseOptionalString(env.PLANNING_GATEWAY_HOST) ?? "127.0.0.1",
+    planningGatewayPort: parsePositiveInt(
+      env.PLANNING_GATEWAY_PORT,
+      8091,
+      "PLANNING_GATEWAY_PORT",
+    ),
+    planningGatewayMaxRequestBytes: parsePositiveInt(
+      env.PLANNING_GATEWAY_MAX_REQUEST_BYTES,
+      1_048_576,
+      "PLANNING_GATEWAY_MAX_REQUEST_BYTES",
+    ),
+    planningGatewayMaxRecordsPerRequest: parsePositiveInt(
+      env.PLANNING_GATEWAY_MAX_RECORDS_PER_REQUEST,
+      500,
+      "PLANNING_GATEWAY_MAX_RECORDS_PER_REQUEST",
+    ),
+    planningGatewayAuthToken: parseOptionalString(env.PLANNING_GATEWAY_AUTH_TOKEN),
+    planningImpactConsumerGroup:
+      parseOptionalString(env.PLANNING_IMPACT_CONSUMER_GROUP) ??
+      "planning-impact-group",
+    planningImpactConsumerName: parseOptionalString(env.PLANNING_IMPACT_CONSUMER_NAME),
   };
 }

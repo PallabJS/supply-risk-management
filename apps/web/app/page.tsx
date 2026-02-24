@@ -9,6 +9,8 @@ import { DashboardHeader } from "@/components/Header";
 import { MetricsGrid, MetricCard } from "@/components/MetricCard";
 import { OperationsRiskTable, buildOperationsRows } from "@/components/Tables";
 import type {
+  AtRiskShipment,
+  InventoryExposure,
   Signal,
   ClassifiedEvent,
   RiskEvaluation,
@@ -28,6 +30,8 @@ interface DashboardData {
   risks: RiskEvaluation[];
   mitigations: MitigationPlan[];
   notifications: RiskNotification[];
+  atRiskShipments: AtRiskShipment[];
+  inventoryExposures: InventoryExposure[];
   riskSummary: RiskSummary;
   eventSummary: EventSummary;
   connectorHealth: ConnectorHealth;
@@ -128,14 +132,24 @@ export default function DashboardPage() {
     data.risks,
     data.mitigations,
     data.notifications,
+    data.atRiskShipments,
+    data.inventoryExposures,
   );
+  const inventoryExposureTotal = data.inventoryExposures.reduce(
+    (sum, exposure) => sum + exposure.revenue_at_risk_inr,
+    0,
+  );
+  const highestStockoutProbability =
+    data.atRiskShipments.length > 0
+      ? Math.max(...data.atRiskShipments.map((shipment) => shipment.stockout_probability))
+      : 0;
   const averagePredictedDelay =
-    data.mitigations.length > 0
+    data.atRiskShipments.length > 0
       ? Math.round(
-          data.mitigations.reduce(
-            (sum, item) => sum + item.predicted_delay_hours,
+          data.atRiskShipments.reduce(
+            (sum, item) => sum + item.delay_hours,
             0,
-          ) / data.mitigations.length,
+          ) / data.atRiskShipments.length,
         )
       : 0;
 
@@ -176,9 +190,9 @@ export default function DashboardPage() {
         <MetricsGrid>
           <MetricCard
             title="Open Alerts"
-            value={data.actionSummary.openNotifications || attentionCount}
+            value={data.atRiskShipments.length || data.actionSummary.openNotifications || attentionCount}
             icon="⚠️"
-            color={data.actionSummary.openNotifications > 0 ? "red" : "green"}
+            color={data.atRiskShipments.length > 0 || data.actionSummary.openNotifications > 0 ? "red" : "green"}
             subtext={`${data.actionSummary.criticalNotifications} critical • ${data.actionSummary.highNotifications} high`}
           />
           <MetricCard
@@ -186,22 +200,22 @@ export default function DashboardPage() {
             value={`${averagePredictedDelay}h`}
             icon="⏱️"
             color="yellow"
-            subtext="Average delay across active mitigations"
+            subtext="Average ETA slip across at-risk shipments"
           />
           <MetricCard
             title="Action Plans"
-            value={data.mitigations.length}
+            value={data.atRiskShipments.length}
             unit=""
             icon="🛠️"
             color="blue"
-            subtext={`Plan confidence ${(data.actionSummary.avgMitigationConfidence * 100).toFixed(0)}%`}
+            subtext={`${(highestStockoutProbability * 100).toFixed(0)}% max stockout probability`}
           />
           <MetricCard
             title="Exposure At Risk"
-            value={formatInr(data.riskSummary.totalExposure)}
+            value={formatInr(Math.max(data.riskSummary.totalExposure, inventoryExposureTotal))}
             icon="₹"
             color="red"
-            subtext="Estimated revenue exposure on active lanes"
+            subtext="Estimated revenue exposure across impacted SKUs"
           />
         </MetricsGrid>
         <div className="bg-white border border-gray-200/70 rounded-2xl p-5 shadow-sm mb-6">

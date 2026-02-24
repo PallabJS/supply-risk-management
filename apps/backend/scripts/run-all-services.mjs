@@ -16,6 +16,10 @@ const services = [
     args: ["--import", "tsx", "src/adapters/signal-ingestion-gateway/index.ts"],
   },
   {
+    name: "planning-gateway",
+    args: ["--import", "tsx", "src/adapters/planning-gateway/index.ts"],
+  },
+  {
     name: "signal-ingestion-worker",
     args: ["--import", "tsx", "src/workers/signal-ingestion-worker.ts"],
   },
@@ -46,6 +50,10 @@ const services = [
   {
     name: "notification-worker",
     args: ["--import", "tsx", "src/workers/notification-worker.ts"],
+  },
+  {
+    name: "planning-impact-worker",
+    args: ["--import", "tsx", "src/workers/planning-impact-worker.ts"],
   },
 ];
 

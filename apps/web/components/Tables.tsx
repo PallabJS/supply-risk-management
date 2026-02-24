@@ -1,17 +1,24 @@
-import type { MitigationPlan, RiskEvaluation, RiskNotification } from "@/lib/redis";
+import type {
+  AtRiskShipment,
+  InventoryExposure,
+  MitigationPlan,
+  RiskEvaluation,
+  RiskNotification
+} from "@/lib/redis";
 
 export interface OperationsRow {
   riskId: string;
   severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   route: string;
+  poNumber: string;
+  sku: string;
+  warehouseId: string;
   trigger: string;
   predictedDelayHours: number;
-  delayReductionHours: number;
-  estimatedCostInr: number;
+  stockoutDateUtc: string;
+  daysOfCover: number | null;
+  stockoutProbability: number;
   estimatedExposureInr: number;
-  riskScore: number;
-  laneRelevanceScore: number;
-  mitigationConfidence: number;
   actionTitle: string;
   actionDescription: string;
   timestamp?: string;
@@ -36,6 +43,18 @@ function formatInr(value: number): string {
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function formatUtc(iso?: string): string {
+  if (!iso) return "—";
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return "—";
+  return new Date(ms).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function routeLabel(laneId?: string, fallbackRegion?: string): string {
@@ -66,7 +85,48 @@ export function buildOperationsRows(
   risks: RiskEvaluation[],
   mitigations: MitigationPlan[],
   notifications: RiskNotification[],
+  atRiskShipments: AtRiskShipment[],
+  inventoryExposures: InventoryExposure[],
 ): OperationsRow[] {
+  const exposureByCompositeKey = new Map<string, InventoryExposure>();
+  for (const exposure of inventoryExposures) {
+    const key = `${exposure.risk_id}:${exposure.sku}:${exposure.warehouse_id}`;
+    if (!exposureByCompositeKey.has(key)) {
+      exposureByCompositeKey.set(key, exposure);
+    }
+  }
+
+  if (atRiskShipments.length > 0) {
+    return atRiskShipments
+      .map((item) => {
+        const exposure = exposureByCompositeKey.get(
+          `${item.risk_id}:${item.sku}:${item.warehouse_id}`
+        );
+        return {
+          riskId: item.risk_id,
+          severity: item.risk_level,
+          route: routeLabel(item.lane_id),
+          poNumber: item.po_number,
+          sku: item.sku,
+          warehouseId: item.warehouse_id,
+          trigger: `Shipment ${item.shipment_id} ETA slipped by ${Math.round(item.delay_hours)}h`,
+          predictedDelayHours: item.delay_hours,
+          stockoutDateUtc: item.stockout_date_utc,
+          daysOfCover: exposure?.days_of_cover ?? null,
+          stockoutProbability:
+            exposure?.stockout_probability ?? item.stockout_probability,
+          estimatedExposureInr: Math.max(
+            item.revenue_at_risk_inr,
+            exposure?.revenue_at_risk_inr ?? 0
+          ),
+          actionTitle: item.required_action,
+          actionDescription: item.action_description,
+          timestamp: item.timestamp
+        };
+      })
+      .sort((a, b) => b.stockoutProbability - a.stockoutProbability);
+  }
+
   const mitigationByRiskId = new Map<string, MitigationPlan>();
   for (const mitigation of mitigations) {
     if (!mitigationByRiskId.has(mitigation.risk_id)) {
@@ -97,16 +157,17 @@ export function buildOperationsRows(
       riskId: risk.risk_id,
       severity: risk.risk_level,
       route: routeLabel(mitigation.lane_id, risk.impact_region),
+      poNumber: "—",
+      sku: "—",
+      warehouseId: "—",
       trigger: notification?.message || notification?.title || "Operational disruption detected",
       predictedDelayHours: mitigation.predicted_delay_hours,
-      delayReductionHours: topAction.expected_delay_reduction_hours,
-      estimatedCostInr: topAction.estimated_cost_inr,
+      stockoutDateUtc: "",
+      daysOfCover: null,
+      stockoutProbability: risk.risk_score,
       estimatedExposureInr: risk.estimated_revenue_exposure,
-      riskScore: risk.risk_score,
-      laneRelevanceScore: risk.lane_relevance_score || 0,
-      mitigationConfidence: mitigation.mitigation_confidence,
       actionTitle: topAction.title,
-      actionDescription: topAction.description,
+      actionDescription: `${topAction.description} (can reduce ~${topAction.expected_delay_reduction_hours}h, est. cost ${formatInr(topAction.estimated_cost_inr)})`,
       timestamp: notification?.timestamp || mitigation.timestamp || risk.timestamp,
     });
   }
@@ -115,7 +176,7 @@ export function buildOperationsRows(
     const severityRank = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
     const rankDiff = severityRank[b.severity] - severityRank[a.severity];
     if (rankDiff !== 0) return rankDiff;
-    return b.riskScore - a.riskScore;
+    return b.stockoutProbability - a.stockoutProbability;
   });
 }
 
@@ -135,19 +196,18 @@ export function OperationsRiskTable({ rows }: OperationsRiskTableProps) {
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[8%]">Severity</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[16%]">PO / SKU / WH</th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[11%]">Route</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[24%]">Risk Trigger</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[24%]">Best Action</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[9%]">Delay</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[11%]">Exposure</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[8%]">Confidence</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[5%]">Updated</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[20%]">Risk Trigger</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[14%]">Impact</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[22%]">Best Action</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase w-[9%]">Updated</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td className="px-6 py-10 text-sm text-gray-500" colSpan={8}>
+                <td className="px-6 py-10 text-sm text-gray-500" colSpan={7}>
                   No actionable risks yet. Once disruptions are detected, this board will show route-level actions.
                 </td>
               </tr>
@@ -159,29 +219,33 @@ export function OperationsRiskTable({ rows }: OperationsRiskTableProps) {
                       {row.severity}
                     </span>
                   </td>
+                  <td className="px-3 py-3 text-sm text-gray-900 whitespace-normal break-words">
+                    <div className="font-medium">{row.poNumber}</div>
+                    <div className="text-xs text-gray-600">{row.sku}</div>
+                    <div className="text-xs text-gray-500">{row.warehouseId}</div>
+                  </td>
                   <td className="px-3 py-3 text-sm font-medium text-gray-900 whitespace-normal break-words">{row.route}</td>
                   <td className="px-3 py-3 text-sm text-gray-700 whitespace-normal break-words">
                     {row.trigger}
                   </td>
                   <td className="px-3 py-3 text-sm text-gray-900 whitespace-normal break-words">
+                    <div className="font-semibold">{row.predictedDelayHours}h</div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      Stockout: {formatUtc(row.stockoutDateUtc)}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      {row.daysOfCover != null
+                        ? `${row.daysOfCover.toFixed(1)} days cover`
+                        : "Days cover unavailable"}
+                    </div>
+                    <div className="text-xs mt-1 font-medium text-orange-700">
+                      {(row.stockoutProbability * 100).toFixed(0)}% stockout probability
+                    </div>
+                    {formatInr(row.estimatedExposureInr)}
+                  </td>
+                  <td className="px-3 py-3 text-sm text-gray-900 whitespace-normal break-words">
                     <div className="font-medium">{row.actionTitle}</div>
                     <div className="text-xs text-gray-600 mt-1">{row.actionDescription}</div>
-                  </td>
-                  <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">
-                    <div className="font-semibold">{row.predictedDelayHours}h</div>
-                    <div className="text-xs text-emerald-700">-{row.delayReductionHours}h possible</div>
-                  </td>
-                  <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap font-semibold">
-                    {formatInr(row.estimatedExposureInr)}
-                    <div className="text-xs text-gray-600 mt-1">
-                      {formatInr(row.estimatedCostInr)} action cost
-                    </div>
-                  </td>
-                  <td className="px-3 py-3 text-sm text-gray-800 whitespace-nowrap">
-                    <div>{(row.mitigationConfidence * 100).toFixed(0)}% plan</div>
-                    <div className="text-xs text-gray-600 mt-1">
-                      {(row.riskScore * 100).toFixed(0)}% risk
-                    </div>
                   </td>
                   <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">{minutesAgo(row.timestamp)}</td>
                 </tr>
