@@ -148,7 +148,7 @@ export class DeterministicRiskEvaluator implements RiskEvaluator {
     const confidenceFactor = clamp(risk.classification_confidence, 0, 1);
     const urgency = eventUrgencyFactor(risk.event_type);
 
-    const riskScore = clamp(
+    const baseRiskScore = clamp(
       severityWeight * 0.3 +
         durationFactor * 0.18 +
         operationalCriticality * 0.16 +
@@ -159,6 +159,12 @@ export class DeterministicRiskEvaluator implements RiskEvaluator {
       0,
       1
     );
+    const riskScore =
+      risk.event_type === "NEWS" &&
+      risk.severity_level <= 2 &&
+      confidenceFactor < 0.75
+        ? Math.min(0.32, roundTo(baseRiskScore * 0.72, 4))
+        : baseRiskScore;
 
     const durationDays = Math.max(1, Math.ceil(risk.expected_duration_hours / 24));
     const dailyRevenue = normalizeDailyRevenue(risk, this.dailyRevenueBaseline);

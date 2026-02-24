@@ -129,6 +129,8 @@ export default function DashboardPage() {
   const attentionCount =
     data.riskSummary.criticalCount + data.riskSummary.highCount;
   const operationsRows = buildOperationsRows(
+    data.signals,
+    data.events,
     data.risks,
     data.mitigations,
     data.notifications,

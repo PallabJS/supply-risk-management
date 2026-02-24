@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { RawExternalSignal } from "../../modules/signal-ingestion/types.js";
 import type { LogisticsNewsItem } from "./types.js";
+import { inferIndiaGeographicScopeFromText } from "../shared/india-geo.js";
 
 function inferSourceType(item: LogisticsNewsItem): "NEWS" | "TRAFFIC" {
   const text = `${item.title} ${item.description}`.toLowerCase();
@@ -16,13 +17,7 @@ function inferSourceType(item: LogisticsNewsItem): "NEWS" | "TRAFFIC" {
 }
 
 function inferGeographicScope(item: LogisticsNewsItem): string {
-  const text = `${item.title} ${item.description}`.toLowerCase();
-  if (text.includes("mumbai")) return "Mumbai";
-  if (text.includes("bangalore") || text.includes("bengaluru")) return "Bangalore";
-  if (text.includes("maharashtra")) return "Maharashtra";
-  if (text.includes("karnataka")) return "Karnataka";
-  if (text.includes("india")) return "India";
-  return "India";
+  return inferIndiaGeographicScopeFromText(`${item.title} ${item.description}`);
 }
 
 function computeConfidence(item: LogisticsNewsItem): number {
