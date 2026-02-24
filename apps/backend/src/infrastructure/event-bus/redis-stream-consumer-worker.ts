@@ -25,6 +25,17 @@ function retryKey(stream: string, messageId: string): string {
   return `retry:${stream}:${messageId}`;
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
+function isNoGroupError(error: unknown): boolean {
+  return errorMessage(error).toUpperCase().includes("NOGROUP");
+}
+
 export class RedisStreamConsumerWorker<TMessage> {
   private running = false;
   private readonly retryBackoffMs: number;
@@ -38,13 +49,22 @@ export class RedisStreamConsumerWorker<TMessage> {
   }
 
   async runOnce(): Promise<number> {
-    const messages = await this.options.consumer.consumeGroup<TMessage>({
-      stream: this.options.stream,
-      group: this.options.group,
-      consumer: this.options.consumerName,
-      count: this.options.batchSize,
-      blockMs: this.options.blockMs
-    });
+    let messages;
+    try {
+      messages = await this.options.consumer.consumeGroup<TMessage>({
+        stream: this.options.stream,
+        group: this.options.group,
+        consumer: this.options.consumerName,
+        count: this.options.batchSize,
+        blockMs: this.options.blockMs
+      });
+    } catch (error) {
+      if (isNoGroupError(error)) {
+        await this.options.consumer.ensureGroup(this.options.stream, this.options.group);
+        return 0;
+      }
+      throw error;
+    }
 
     if (messages.length === 0) {
       return 0;
@@ -93,7 +113,17 @@ export class RedisStreamConsumerWorker<TMessage> {
 
     this.running = true;
     while (this.running) {
-      await this.runOnce();
+      try {
+        await this.runOnce();
+      } catch (error) {
+        console.error("stream consumer worker run failed", {
+          stream: this.options.stream,
+          group: this.options.group,
+          consumer: this.options.consumerName,
+          error: errorMessage(error)
+        });
+        await sleep(this.retryBackoffMs);
+      }
     }
   }
 

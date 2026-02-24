@@ -6,6 +6,7 @@ import { RedisConnectorLeaseManager } from "../infrastructure/redis/connector-le
 import { loadConnectorRegistry } from "../connectors/framework/registry-loader.js";
 import { createConnectorByType } from "../connectors/framework/connector-factory.js";
 import { registerBuiltInConnectors } from "../connectors/framework/built-in-connectors.js";
+import { ConnectorMetricsCollector } from "../infrastructure/metrics/connector-metrics.js";
 import type { Logger } from "../modules/signal-ingestion/types.js";
 
 /**
@@ -124,6 +125,7 @@ async function main(): Promise<void> {
 
     const stateStore = new RedisConnectorStateStore(redis);
     const leaseManager = new RedisConnectorLeaseManager(redis);
+    const metricsCollector = new ConnectorMetricsCollector(redis);
 
     // Create connector instance
     const connectorLogger = createLogger(connectorName);
@@ -202,6 +204,21 @@ async function main(): Promise<void> {
         try {
           // Run one poll cycle
           const summary = await connector.poll();
+          const pollLatencyMs = Date.now() - startedAt;
+          try {
+            await metricsCollector.recordPoll(
+              connectorName,
+              summary,
+              pollLatencyMs,
+            );
+          } catch (metricsError) {
+            connectorLogger.warn("failed to record connector metrics", {
+              error:
+                metricsError instanceof Error
+                  ? metricsError.message
+                  : String(metricsError),
+            });
+          }
 
           // Log summary if anything happened
           if (

@@ -9,26 +9,78 @@ export function parseIndiaAlertsPayload(
   maxAlerts: number,
   states: string[],
 ): IndianWeatherAlert[] {
-  if (!Array.isArray(payload)) {
-    return generateMockIndianAlerts(states, maxAlerts);
+  if (Array.isArray(payload)) {
+    return payload.slice(0, maxAlerts).map((item: unknown) => {
+      const obj = item as Record<string, unknown>;
+      const districts = Array.isArray(obj.districts)
+        ? obj.districts.filter((value): value is string => typeof value === "string")
+        : undefined;
+      const endTime = obj.endTime ? String(obj.endTime) : undefined;
+      return {
+        id: String(obj.id || crypto.randomUUID?.() || Date.now()),
+        title: String(obj.title || obj.main || "Weather Alert"),
+        description: String(obj.description || ""),
+        severity: normalizeSeverity(String(obj.severity || "Moderate")),
+        state: String(obj.state || obj.region || ""),
+        ...(districts ? { districts } : {}),
+        startTime: String(obj.startTime || new Date().toISOString()),
+        ...(endTime ? { endTime } : {}),
+        source: obj.source === "imd" ? "imd" : "weather-api",
+      };
+    });
   }
 
-  return payload.slice(0, maxAlerts).map((item: unknown) => {
-    const obj = item as Record<string, unknown>;
-    const districts = Array.isArray(obj.districts)
-      ? obj.districts.filter((value): value is string => typeof value === "string")
+  // WeatherAPI response shape:
+  // { location, forecast: { alerts: { alert: [...] } } } or { alerts: { alert: [...] } }
+  const root = payload as Record<string, unknown> | null;
+  if (!root || typeof root !== "object") {
+    return [];
+  }
+
+  const location = (root.location as Record<string, unknown> | undefined) ?? {};
+  const forecast = (root.forecast as Record<string, unknown> | undefined) ?? {};
+  const alertsNode =
+    (forecast.alerts as Record<string, unknown> | undefined) ??
+    (root.alerts as Record<string, unknown> | undefined) ??
+    {};
+  const rawAlerts = alertsNode.alert;
+  if (!Array.isArray(rawAlerts)) {
+    return [];
+  }
+
+  return rawAlerts.slice(0, maxAlerts).map((item: unknown, index) => {
+    const alert = (item as Record<string, unknown> | null) ?? {};
+    const areasRaw = String(alert.areas ?? "").trim();
+    const districts = areasRaw
+      ? areasRaw
+          .split(/[,;|]/)
+          .map((value) => value.trim())
+          .filter((value) => value !== "")
       : undefined;
-    const endTime = obj.endTime ? String(obj.endTime) : undefined;
+
+    const derivedState =
+      String(alert.region ?? "").trim() ||
+      String(location.region ?? "").trim() ||
+      String(location.name ?? "").trim() ||
+      states[0] ||
+      "India";
+
+    const effective = String(alert.effective ?? "").trim();
+    const expires = String(alert.expires ?? "").trim();
+    const nowIso = new Date().toISOString();
+    const startTime = Number.isFinite(Date.parse(effective)) ? effective : nowIso;
+    const endTime = Number.isFinite(Date.parse(expires)) ? expires : undefined;
+
     return {
-      id: String(obj.id || crypto.randomUUID?.() || Date.now()),
-      title: String(obj.title || obj.main || "Weather Alert"),
-      description: String(obj.description || obj.description || ""),
-      severity: normalizeSeverity(String(obj.severity || "Moderate")),
-      state: String(obj.state || obj.region || ""),
-      ...(districts ? { districts } : {}),
-      startTime: String(obj.startTime || new Date().toISOString()),
+      id: String(alert.id || alert.headline || `${Date.now()}-${index}`),
+      title: String(alert.headline || alert.event || "Weather Alert"),
+      description: String(alert.desc || alert.note || alert.instruction || ""),
+      severity: normalizeSeverity(String(alert.severity || "Moderate")),
+      state: derivedState,
+      ...(districts && districts.length > 0 ? { districts } : {}),
+      startTime,
       ...(endTime ? { endTime } : {}),
-      source: obj.source === "imd" ? "imd" : "weather-api",
+      source: "weather-api",
     };
   });
 }

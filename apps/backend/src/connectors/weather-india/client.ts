@@ -53,7 +53,6 @@ export class IndianWeatherAlertsClient implements WeatherAlertsProvider {
   async fetchActiveAlerts(maxAlerts: number): Promise<FetchActiveAlertsResult> {
     assertPositiveInt(maxAlerts, "maxAlerts");
 
-    // Major Indian states for weather monitoring
     const indianStates = [
       "Andhra Pradesh",
       "Arunachal Pradesh",
@@ -134,18 +133,6 @@ export class IndianWeatherAlertsClient implements WeatherAlertsProvider {
             `Indian weather API request failed with status ${response.status}`,
             body,
           );
-          // In dev/demo environments, we prefer showing India-only data rather than
-          // hard-failing the connector when the API key is missing/invalid.
-          if (response.status === 401 || response.status === 403) {
-            return {
-              alerts: parseIndiaAlertsPayload(
-                undefined,
-                maxAlerts,
-                indianStates,
-              ),
-              notModified: false,
-            };
-          }
           throw new Error(
             `Indian weather API request failed (${response.status}): ${body}`,
           );

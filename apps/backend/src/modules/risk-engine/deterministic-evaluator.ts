@@ -100,6 +100,25 @@ function normalizeDailyRevenue(
   return dailyRevenueBaseline;
 }
 
+function eventUrgencyFactor(eventType: ClassifiedRiskInput["event_type"]): number {
+  switch (eventType) {
+    case "LABOR":
+      return 0.9;
+    case "WEATHER":
+      return 0.82;
+    case "SUPPLY":
+      return 0.8;
+    case "TRAFFIC":
+      return 0.74;
+    case "GEOPOLITICAL":
+      return 0.88;
+    case "NEWS":
+      return 0.55;
+    default:
+      return 0.5;
+  }
+}
+
 export class DeterministicRiskEvaluator implements RiskEvaluator {
   readonly name: string;
 
@@ -119,27 +138,30 @@ export class DeterministicRiskEvaluator implements RiskEvaluator {
   }
 
   async evaluate(risk: ClassifiedRiskInput): Promise<RiskEvaluationDraft> {
+    const impactedLanes = resolveImpactedLanes(risk.impact_region);
+    const laneRelevanceScore = computeLaneRelevanceScore(risk.impact_region, impactedLanes);
     const severityWeight = clamp(risk.severity_level / 5, 0, 1);
     const durationFactor = clamp(risk.expected_duration_hours / (24 * 7), 0, 1);
     const inventoryCoverageDays = normalizeInventoryCoverageDays(risk);
     const inventoryPressure = clamp(1 - inventoryCoverageDays / 30, 0, 1);
     const operationalCriticality = normalizeOperationalCriticality(risk);
     const confidenceFactor = clamp(risk.classification_confidence, 0, 1);
+    const urgency = eventUrgencyFactor(risk.event_type);
 
     const riskScore = clamp(
-      severityWeight * 0.35 +
-        durationFactor * 0.2 +
-        operationalCriticality * 0.2 +
-        confidenceFactor * 0.15 +
-        inventoryPressure * 0.1,
+      severityWeight * 0.3 +
+        durationFactor * 0.18 +
+        operationalCriticality * 0.16 +
+        confidenceFactor * 0.14 +
+        inventoryPressure * 0.08 +
+        urgency * 0.08 +
+        laneRelevanceScore * 0.06,
       0,
       1
     );
 
     const durationDays = Math.max(1, Math.ceil(risk.expected_duration_hours / 24));
     const dailyRevenue = normalizeDailyRevenue(risk, this.dailyRevenueBaseline);
-    const impactedLanes = resolveImpactedLanes(risk.impact_region);
-    const laneRelevanceScore = computeLaneRelevanceScore(risk.impact_region, impactedLanes);
     const estimatedRevenueExposure =
       dailyRevenue * durationDays * riskScore * operationalCriticality * (0.7 + laneRelevanceScore * 0.3);
 

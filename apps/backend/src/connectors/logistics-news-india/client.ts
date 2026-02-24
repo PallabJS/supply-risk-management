@@ -45,9 +45,95 @@ function sanitizeText(value: string | undefined, fallback: string): string {
     .trim();
 }
 
+function normalizeHeadline(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\s*[-|]\s*[^-|]+$/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function tokenize(value: string): Set<string> {
+  return new Set(
+    value
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length > 2),
+  );
+}
+
+function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let intersection = 0;
+  for (const token of a) {
+    if (b.has(token)) intersection += 1;
+  }
+  const union = a.size + b.size - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+const DISRUPTION_KEYWORDS = [
+  "strike",
+  "trucker",
+  "truckers",
+  "lorry",
+  "shutdown",
+  "disrupt",
+  "disruption",
+  "congestion",
+  "delay",
+  "shortage",
+  "blocked",
+  "closure",
+  "flood",
+  "storm",
+  "cyclone",
+  "port closure",
+  "supply hit",
+  "outage",
+  "dues",
+];
+
+const NON_DISRUPTION_KEYWORDS = [
+  "mou",
+  "mo u",
+  "sign mo u",
+  "signed an mou",
+  "appointed",
+  "appoints",
+  "conference",
+  "education hub",
+  "launches",
+  "launch",
+  "invest",
+  "investment",
+  "leases",
+  "pledges",
+  "margin boost",
+  "quality & innovation",
+];
+
+function includesAnyKeyword(text: string, keywords: string[]): boolean {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function isDisruptionCandidate(title: string, description: string): boolean {
+  const text = `${title} ${description}`.toLowerCase();
+  const hasDisruption = includesAnyKeyword(text, DISRUPTION_KEYWORDS);
+  if (!hasDisruption) return false;
+  const isClearlyPositive = includesAnyKeyword(text, NON_DISRUPTION_KEYWORDS);
+  if (isClearlyPositive && !text.includes("strike") && !text.includes("disrupt")) {
+    return false;
+  }
+  return true;
+}
+
 function parseRssItems(xml: string, maxItems: number): LogisticsNewsItem[] {
   const itemMatches = xml.match(/<item[\s\S]*?<\/item>/gi) || [];
   const items: LogisticsNewsItem[] = [];
+  const seen = new Set<string>();
+  const seenTokenSets: Set<string>[] = [];
 
   for (const itemXml of itemMatches) {
     if (items.length >= maxItems) {
@@ -62,6 +148,9 @@ function parseRssItems(xml: string, maxItems: number): LogisticsNewsItem[] {
       extractTagValue(itemXml, "description"),
       "",
     );
+    if (!isDisruptionCandidate(title, description)) {
+      continue;
+    }
     const link = sanitizeText(extractTagValue(itemXml, "link"), "");
     const guid = sanitizeText(extractTagValue(itemXml, "guid"), link || title);
     const pubDate = extractTagValue(itemXml, "pubDate");
@@ -72,6 +161,19 @@ function parseRssItems(xml: string, maxItems: number): LogisticsNewsItem[] {
     const publishedAt = Number.isFinite(Date.parse(pubDate ?? ""))
       ? new Date(pubDate as string).toISOString()
       : new Date().toISOString();
+    const dedupeKey = `${normalizeHeadline(title)}:${publishedAt.slice(0, 13)}`;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+    const titleTokens = tokenize(normalizeHeadline(title));
+    const hasNearDuplicate = seenTokenSets.some(
+      (tokens) => jaccardSimilarity(tokens, titleTokens) >= 0.8,
+    );
+    if (hasNearDuplicate) {
+      continue;
+    }
+    seen.add(dedupeKey);
+    seenTokenSets.push(titleTokens);
 
     const itemId = createHash("sha1")
       .update(`${guid}:${publishedAt}`)
