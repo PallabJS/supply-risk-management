@@ -1,14 +1,30 @@
 import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
 
 const OLLAMA_HOST = "http://localhost:11434";
 const MODEL = "llama3.1:8b";
 const MAX_RETRIES = 30;
 const RETRY_DELAY = 2000;
+const AI_MODELS_DIR = "/Users/ramya-pallab/ai-models/ollama";
 
 function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function ensureDirectoryExists() {
+  try {
+    if (!fs.existsSync(AI_MODELS_DIR)) {
+      fs.mkdirSync(AI_MODELS_DIR, { recursive: true });
+      console.log(`[ollama-init] created directory: ${AI_MODELS_DIR}`);
+    }
+  } catch (error) {
+    console.warn(
+      `[ollama-init] warning: could not ensure directory exists: ${error.message}`,
+    );
+  }
 }
 
 async function checkOllamaReady() {
@@ -123,6 +139,7 @@ async function checkModelExists() {
 
 async function main() {
   try {
+    ensureDirectoryExists();
     const ready = await waitForOllama();
     if (!ready) {
       console.error("[ollama-init] Ollama initialization failed");
