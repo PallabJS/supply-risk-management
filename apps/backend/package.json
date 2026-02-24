@@ -1,0 +1,41 @@
+{
+  "name": "swarm-risk-management",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/run-with-env.mjs --import tsx src/app.ts",
+    "services:all": "node scripts/run-all-services.mjs",
+    "gateway:signal-ingestion": "node scripts/run-with-env.mjs --import tsx src/adapters/signal-ingestion-gateway/index.ts",
+    "worker:signal-ingestion": "node scripts/run-with-env.mjs --import tsx src/workers/signal-ingestion-worker.ts",
+    "connector:run": "node scripts/run-with-env.mjs --import tsx src/workers/universal-connector-worker.ts",
+    "connector:run:weather-noaa": "CONNECTOR_NAME=weather-noaa npm run connector:run",
+    "connectors:all": "node scripts/run-all-connectors.mjs",
+    "connector:weather-noaa": "node scripts/run-with-env.mjs --import tsx src/workers/weather-connector-worker.ts",
+    "adapter:risk-classification-llm": "node scripts/run-with-env.mjs --import tsx src/adapters/risk-classification-llm-adapter/index.ts",
+    "worker:risk-classification": "node scripts/run-with-env.mjs --import tsx src/workers/risk-classification-worker.ts",
+    "worker:risk-engine": "node scripts/run-with-env.mjs --import tsx src/workers/risk-engine-worker.ts",
+    "producer:sample-input": "node scripts/run-with-env.mjs --import tsx src/playground/send-sample-input-signal.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "prestart": "npm run build",
+    "start": "node scripts/run-with-env.mjs dist/app.js",
+    "test": "node scripts/run-tests.mjs",
+    "test:integration": "node scripts/run-with-env.mjs scripts/run-integration-tests.mjs",
+    "infra:up": "docker compose up -d redis",
+    "infra:down": "docker compose down",
+    "infra:logs": "docker compose logs -f redis",
+    "redis:clear": "node scripts/clear-redis.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "redis": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

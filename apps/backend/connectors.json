@@ -1,10 +1,10 @@
 {
   "connectors": [
     {
-      "name": "weather-noaa",
-      "type": "NOAA_WEATHER",
+      "name": "weather-india",
+      "type": "INDIA_WEATHER",
       "enabled": true,
-      "pollIntervalMs": 60000,
+      "pollIntervalMs": 10000,
       "requestTimeoutMs": 10000,
       "maxRetries": 2,
       "outputStream": "raw-input-signals",
@@ -15,14 +15,9 @@
         "jitterRatio": 0.1
       },
       "providerConfig": {
-        "baseUrl": "https://api.weather.gov",
-        "alertsPath": "/alerts/active",
+        "baseUrl": "https://api.weatherapi.com/v1",
         "userAgent": "swarm-risk-management/0.1",
-        "area": "",
-        "severity": "Severe,Extreme",
-        "urgency": "Immediate,Expected",
-        "certainty": "Observed,Likely",
-        "maxAlertsPerPoll": 200
+        "maxAlertsPerPoll": 50
       }
     }
   ]

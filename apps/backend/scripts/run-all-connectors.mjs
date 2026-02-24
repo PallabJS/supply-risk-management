@@ -52,7 +52,7 @@ function runConnector(connectorName) {
       connectorName,
     ];
 
-    const process = spawn("node", ["scripts/run-with-env.mjs", ...args], {
+    const child = spawn("node", ["scripts/run-with-env.mjs", ...args], {
       cwd: projectRoot,
       stdio: "inherit",
       env: {
@@ -65,10 +65,10 @@ function runConnector(connectorName) {
 
     const handleStop = () => {
       console.log(`[connectors:all] Stopping ${connectorName}...`);
-      process.kill("SIGTERM");
+      child.kill("SIGTERM");
     };
 
-    process.on("exit", (code) => {
+    child.on("exit", (code) => {
       if (code !== 0) {
         console.warn(
           `[connectors:all] Connector ${connectorName} exited with code ${code}`,
@@ -77,7 +77,7 @@ function runConnector(connectorName) {
       resolve();
     });
 
-    process.on("error", (error) => {
+    child.on("error", (error) => {
       console.error(
         `[connectors:all] Failed to start ${connectorName}:`,
         error,
@@ -87,11 +87,14 @@ function runConnector(connectorName) {
 
     // Handle process signals to relay to child
     const relaySignal = (signal) => {
-      process.kill(signal);
+      child.kill(signal);
     };
 
     globalThis._connectorHandlers = globalThis._connectorHandlers || {};
-    globalThis._connectorHandlers[connectorName] = { process, handleStop };
+    globalThis._connectorHandlers[connectorName] = {
+      process: child,
+      handleStop,
+    };
   });
 }
 
