@@ -130,11 +130,19 @@ export class IndianWeatherAlertsClient implements WeatherAlertsProvider {
 
         if (!response.ok) {
           const body = await response.text();
+          console.log(
+            `Indian weather API request failed with status ${response.status}`,
+            body,
+          );
           // In dev/demo environments, we prefer showing India-only data rather than
           // hard-failing the connector when the API key is missing/invalid.
           if (response.status === 401 || response.status === 403) {
             return {
-              alerts: parseIndiaAlertsPayload(undefined, maxAlerts, indianStates),
+              alerts: parseIndiaAlertsPayload(
+                undefined,
+                maxAlerts,
+                indianStates,
+              ),
               notModified: false,
             };
           }
@@ -148,7 +156,11 @@ export class IndianWeatherAlertsClient implements WeatherAlertsProvider {
           response.headers.get("last-modified") ?? this.lastModified;
 
         const payload = (await response.json()) as unknown;
-        const alerts = parseIndiaAlertsPayload(payload, maxAlerts, indianStates);
+        const alerts = parseIndiaAlertsPayload(
+          payload,
+          maxAlerts,
+          indianStates,
+        );
 
         return {
           alerts,

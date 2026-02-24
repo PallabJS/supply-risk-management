@@ -54,7 +54,7 @@ async function waitUntilNextPoll(
  * Main entry point for universal connector worker.
  *
  * Usage:
- *   npm run connector:run -- weather-noaa
+ *   npm run connector:run -- weather-india
  *   CONNECTOR_NAME=jira-prod npm run connector:run
  *
  * Environment:

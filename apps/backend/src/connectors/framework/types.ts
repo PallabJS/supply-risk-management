@@ -6,8 +6,8 @@ import type { Logger } from "../../modules/signal-ingestion/types.js";
  */
 export interface ConnectorConfig {
   // Universal required fields
-  name: string; // e.g., "weather-noaa", "jira-prod"
-  type: string; // e.g., "NOAA_WEATHER", "JIRA"
+  name: string; // e.g., "weather-india", "jira-prod"
+  type: string; // e.g., "INDIA_WEATHER", "JIRA"
   enabled: boolean; // Whether this connector should run
   pollIntervalMs: number; // How often to poll (ms)
   requestTimeoutMs: number; // HTTP timeout (ms)

@@ -18,7 +18,7 @@ export class RedisConnectorStateStore implements ConnectorStateStore {
 
   /**
    * Load previously saved state for a connector.
-   * @param connectorName - Name of the connector (e.g., "weather-noaa")
+   * @param connectorName - Name of the connector (e.g., "weather-india")
    * @returns Parsed state object, or undefined if not found
    */
   async load<TState extends object>(

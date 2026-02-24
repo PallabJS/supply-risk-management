@@ -32,7 +32,7 @@ const connectorRegistry = new Map<string, ConnectorConstructor>();
 
 /**
  * Register a connector type.
- * @param type - Connector type identifier (e.g., "NOAA_WEATHER", "JIRA", "GITHUB")
+ * @param type - Connector type identifier (e.g., "INDIA_WEATHER", "JIRA", "GITHUB")
  * @param factory - Function that creates a connector instance
  */
 export function registerConnector(

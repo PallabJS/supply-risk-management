@@ -8,16 +8,6 @@ export interface AppConfig {
   devStreamPrintLimit: number;
   signalIngestionConsumerGroup: string;
   signalIngestionConsumerName: string | undefined;
-  weatherConnectorBaseUrl: string;
-  weatherConnectorAlertsPath: string;
-  weatherConnectorArea: string | undefined;
-  weatherConnectorSeverity: string | undefined;
-  weatherConnectorUrgency: string | undefined;
-  weatherConnectorCertainty: string | undefined;
-  weatherConnectorUserAgent: string;
-  weatherConnectorPollIntervalMs: number;
-  weatherConnectorRequestTimeoutMs: number;
-  weatherConnectorMaxAlertsPerPoll: number;
   riskClassificationPrimaryClassifier: "RULE_BASED" | "LLM";
   riskClassificationConsumerGroup: string;
   riskClassificationConsumerName: string | undefined;
@@ -94,25 +84,6 @@ function parseOptionalString(value: string | undefined): string | undefined {
   return trimmed === "" ? undefined : trimmed;
 }
 
-function parseBaseUrl(
-  value: string | undefined,
-  fallback: string,
-  variableName: string
-): string {
-  const resolved = parseOptionalString(value) ?? fallback;
-  try {
-    new URL(resolved);
-  } catch {
-    throw new Error(`${variableName} must be a valid absolute URL`);
-  }
-  return resolved;
-}
-
-function parsePath(value: string | undefined, fallback: string): string {
-  const resolved = parseOptionalString(value) ?? fallback;
-  return resolved.startsWith("/") ? resolved : `/${resolved}`;
-}
-
 function parseClassifierMode(value: string | undefined): "RULE_BASED" | "LLM" {
   const normalized = parseOptionalString(value)?.toUpperCase() ?? "RULE_BASED";
   if (normalized === "RULE_BASED" || normalized === "LLM") {
@@ -181,37 +152,6 @@ export function loadConfig(env: EnvSource = process.env): AppConfig {
       "signal-ingestion-group",
     signalIngestionConsumerName: parseOptionalString(
       env.SIGNAL_INGESTION_CONSUMER_NAME,
-    ),
-    weatherConnectorBaseUrl: parseBaseUrl(
-      env.WEATHER_CONNECTOR_BASE_URL,
-      "https://api.weather.gov",
-      "WEATHER_CONNECTOR_BASE_URL"
-    ),
-    weatherConnectorAlertsPath: parsePath(
-      env.WEATHER_CONNECTOR_ALERTS_PATH,
-      "/alerts/active"
-    ),
-    weatherConnectorArea: parseOptionalString(env.WEATHER_CONNECTOR_AREA),
-    weatherConnectorSeverity: parseOptionalString(env.WEATHER_CONNECTOR_SEVERITY),
-    weatherConnectorUrgency: parseOptionalString(env.WEATHER_CONNECTOR_URGENCY),
-    weatherConnectorCertainty: parseOptionalString(env.WEATHER_CONNECTOR_CERTAINTY),
-    weatherConnectorUserAgent:
-      parseOptionalString(env.WEATHER_CONNECTOR_USER_AGENT) ??
-      "swarm-risk-management/0.1 (dev@localhost)",
-    weatherConnectorPollIntervalMs: parsePositiveInt(
-      env.WEATHER_CONNECTOR_POLL_INTERVAL_MS,
-      60_000,
-      "WEATHER_CONNECTOR_POLL_INTERVAL_MS"
-    ),
-    weatherConnectorRequestTimeoutMs: parsePositiveInt(
-      env.WEATHER_CONNECTOR_REQUEST_TIMEOUT_MS,
-      10_000,
-      "WEATHER_CONNECTOR_REQUEST_TIMEOUT_MS"
-    ),
-    weatherConnectorMaxAlertsPerPoll: parsePositiveInt(
-      env.WEATHER_CONNECTOR_MAX_ALERTS_PER_POLL,
-      200,
-      "WEATHER_CONNECTOR_MAX_ALERTS_PER_POLL"
     ),
     riskClassificationPrimaryClassifier,
     riskClassificationConsumerGroup:

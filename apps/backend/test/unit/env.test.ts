@@ -17,19 +17,6 @@ test("loads config with defaults", () => {
   assert.equal(config.devStreamPrintLimit, 25);
   assert.equal(config.signalIngestionConsumerGroup, "signal-ingestion-group");
   assert.equal(config.signalIngestionConsumerName, undefined);
-  assert.equal(config.weatherConnectorBaseUrl, "https://api.weather.gov");
-  assert.equal(config.weatherConnectorAlertsPath, "/alerts/active");
-  assert.equal(config.weatherConnectorArea, undefined);
-  assert.equal(config.weatherConnectorSeverity, undefined);
-  assert.equal(config.weatherConnectorUrgency, undefined);
-  assert.equal(config.weatherConnectorCertainty, undefined);
-  assert.equal(
-    config.weatherConnectorUserAgent,
-    "swarm-risk-management/0.1 (dev@localhost)"
-  );
-  assert.equal(config.weatherConnectorPollIntervalMs, 60_000);
-  assert.equal(config.weatherConnectorRequestTimeoutMs, 10_000);
-  assert.equal(config.weatherConnectorMaxAlertsPerPoll, 200);
   assert.equal(config.riskClassificationPrimaryClassifier, "RULE_BASED");
   assert.equal(config.riskClassificationConsumerGroup, "risk-classification-group");
   assert.equal(config.riskClassificationConsumerName, undefined);
@@ -60,16 +47,6 @@ test("loads config with custom values", () => {
     DEV_STREAM_PRINT_LIMIT: "10",
     SIGNAL_INGESTION_CONSUMER_GROUP: "ingestion-group-a",
     SIGNAL_INGESTION_CONSUMER_NAME: "ingestion-worker-1",
-    WEATHER_CONNECTOR_BASE_URL: "https://weather.example.com",
-    WEATHER_CONNECTOR_ALERTS_PATH: "alerts/active",
-    WEATHER_CONNECTOR_AREA: "CA,OR",
-    WEATHER_CONNECTOR_SEVERITY: "Severe,Extreme",
-    WEATHER_CONNECTOR_URGENCY: "Immediate,Expected",
-    WEATHER_CONNECTOR_CERTAINTY: "Observed,Likely",
-    WEATHER_CONNECTOR_USER_AGENT: "test-agent",
-    WEATHER_CONNECTOR_POLL_INTERVAL_MS: "15000",
-    WEATHER_CONNECTOR_REQUEST_TIMEOUT_MS: "7000",
-    WEATHER_CONNECTOR_MAX_ALERTS_PER_POLL: "75",
     RISK_CLASSIFICATION_PRIMARY_CLASSIFIER: "LLM",
     RISK_CLASSIFICATION_CONSUMER_GROUP: "risk-group-a",
     RISK_CLASSIFICATION_CONSUMER_NAME: "risk-worker-1",
@@ -98,16 +75,6 @@ test("loads config with custom values", () => {
   assert.equal(config.devStreamPrintLimit, 10);
   assert.equal(config.signalIngestionConsumerGroup, "ingestion-group-a");
   assert.equal(config.signalIngestionConsumerName, "ingestion-worker-1");
-  assert.equal(config.weatherConnectorBaseUrl, "https://weather.example.com");
-  assert.equal(config.weatherConnectorAlertsPath, "/alerts/active");
-  assert.equal(config.weatherConnectorArea, "CA,OR");
-  assert.equal(config.weatherConnectorSeverity, "Severe,Extreme");
-  assert.equal(config.weatherConnectorUrgency, "Immediate,Expected");
-  assert.equal(config.weatherConnectorCertainty, "Observed,Likely");
-  assert.equal(config.weatherConnectorUserAgent, "test-agent");
-  assert.equal(config.weatherConnectorPollIntervalMs, 15_000);
-  assert.equal(config.weatherConnectorRequestTimeoutMs, 7_000);
-  assert.equal(config.weatherConnectorMaxAlertsPerPoll, 75);
   assert.equal(config.riskClassificationPrimaryClassifier, "LLM");
   assert.equal(config.riskClassificationConsumerGroup, "risk-group-a");
   assert.equal(config.riskClassificationConsumerName, "risk-worker-1");
@@ -185,13 +152,4 @@ test("throws on invalid risk engine baseline", () => {
       RISK_ENGINE_DAILY_REVENUE_BASELINE: "0"
     });
   }, /RISK_ENGINE_DAILY_REVENUE_BASELINE must be a positive integer/);
-});
-
-test("throws on invalid weather connector base url", () => {
-  assert.throws(() => {
-    loadConfig({
-      REDIS_URL: "redis://localhost:6379",
-      WEATHER_CONNECTOR_BASE_URL: "not-a-url"
-    });
-  }, /WEATHER_CONNECTOR_BASE_URL must be a valid absolute URL/);
 });

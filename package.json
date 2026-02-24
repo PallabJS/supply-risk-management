@@ -21,5 +21,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@esbuild/darwin-arm64": "^0.27.3"
   }
 }

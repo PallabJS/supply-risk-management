@@ -9,7 +9,6 @@
  */
 
 import { registerConnector } from "./connector-factory.js";
-import { createNoaaWeatherConnector } from "../weather-noaa/index.js";
 import { createIndianWeatherConnector } from "../weather-india/index.js";
 
 /**
@@ -18,7 +17,6 @@ import { createIndianWeatherConnector } from "../weather-india/index.js";
  */
 export function registerBuiltInConnectors(): void {
   // Weather data
-  registerConnector("NOAA_WEATHER", createNoaaWeatherConnector);
   registerConnector("INDIA_WEATHER", createIndianWeatherConnector);
 
   // TODO: Register other connectors as they are implemented

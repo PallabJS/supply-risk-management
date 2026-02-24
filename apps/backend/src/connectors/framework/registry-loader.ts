@@ -36,8 +36,8 @@ export async function loadConnectorRegistry(
  * {
  *   "connectors": [
  *     {
- *       "name": "weather-noaa",
- *       "type": "NOAA_WEATHER",
+ *       "name": "weather-india",
+ *       "type": "INDIA_WEATHER",
  *       "enabled": true,
  *       "pollIntervalMs": 60000,
  *       "providerConfig": { ... }
@@ -83,12 +83,12 @@ async function loadFromJsonFile(
 /**
  * Load from environment variables.
  * Format:
- *   ENABLED_CONNECTORS=weather-noaa,jira-prod,github-security
- *   CONNECTOR_WEATHER_NOAA_TYPE=NOAA_WEATHER
- *   CONNECTOR_WEATHER_NOAA_POLL_INTERVAL_MS=60000
- *   CONNECTOR_WEATHER_NOAA_REQUEST_TIMEOUT_MS=10000
- *   CONNECTOR_WEATHER_NOAA_MAX_RETRIES=2
- *   CONNECTOR_WEATHER_NOAA_BASE_URL=https://api.weather.gov
+ *   ENABLED_CONNECTORS=weather-india,jira-prod,github-security
+ *   CONNECTOR_WEATHER_INDIA_TYPE=INDIA_WEATHER
+ *   CONNECTOR_WEATHER_INDIA_POLL_INTERVAL_MS=60000
+ *   CONNECTOR_WEATHER_INDIA_REQUEST_TIMEOUT_MS=10000
+ *   CONNECTOR_WEATHER_INDIA_MAX_RETRIES=2
+ *   CONNECTOR_WEATHER_INDIA_BASE_URL=https://api.weatherapi.com/v1
  *   ...
  */
 function loadFromEnvironment(env: NodeJS.ProcessEnv): ConnectorRegistry {
@@ -115,7 +115,7 @@ function loadFromEnvironment(env: NodeJS.ProcessEnv): ConnectorRegistry {
 
 /**
  * Parse a single connector from environment variables.
- * Name format: "weather-noaa" becomes "CONNECTOR_WEATHER_NOAA_*" env vars
+ * Name format: "weather-india" becomes "CONNECTOR_WEATHER_INDIA_*" env vars
  */
 function loadConnectorFromEnv(
   connectorName: string,
