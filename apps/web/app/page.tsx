@@ -25,15 +25,7 @@ import type {
   RiskEvaluation,
   ConnectorMetrics,
 } from "@/lib/redis";
-import {
-  calculateRiskSummary,
-  calculateEventSummary,
-  calculateConnectorHealth,
-  getRiskTrendData,
-  type RiskSummary,
-  type EventSummary,
-  type ConnectorHealth,
-} from "@/lib/metrics";
+import type { RiskSummary, EventSummary, ConnectorHealth } from "@/lib/metrics";
 
 interface DashboardData {
   signals: Signal[];
@@ -47,17 +39,35 @@ interface DashboardData {
   lastUpdated: string;
 }
 
+type DashboardTab = "overview" | "risks" | "signals" | "events" | "connectors";
+
+function formatInr(value: number): string {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function safeDate(value?: string): Date | null {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms);
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [tab, setTab] = useState<DashboardTab>("overview");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch("/api/metrics");
+        const response = await fetch("/api/metrics", { cache: "no-store" });
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
         }
@@ -117,6 +127,22 @@ export default function DashboardPage() {
     );
   }
 
+  const lastUpdated = safeDate(data.lastUpdated);
+  const attentionCount =
+    data.riskSummary.criticalCount + data.riskSummary.highCount;
+
+  const topRegions = (() => {
+    const counts = new Map<string, number>();
+    for (const s of data.signals) {
+      const key = (s.geographic_scope || "").trim();
+      if (!key) continue;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+  })();
+
   const connectorLatencyData = data.connectors.map((c) => ({
     name: c.connectorName,
     latency: c.averageLatencyMs,
@@ -127,84 +153,191 @@ export default function DashboardPage() {
       <DashboardHeader />
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Last Updated Info */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
+        {/* Top bar */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-3">
+            <div className="h-2 w-2 rounded-full bg-emerald-500" />
             <p className="text-sm text-gray-600">
-              Last updated:{" "}
+              Live view •{" "}
               <span className="font-mono">
-                {new Date(data.lastUpdated).toLocaleTimeString()}
+                {lastUpdated ? lastUpdated.toLocaleTimeString() : "—"}
               </span>
+              {error ? (
+                <span className="ml-2 text-red-600">({error})</span>
+              ) : null}
             </p>
           </div>
-          <button
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`px-4 py-2 rounded text-sm font-medium transition ${
-              autoRefresh
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-gray-200 text-gray-800 hover:bg-gray-300"
-            }`}
-          >
-            {autoRefresh ? "Auto-refresh: ON" : "Auto-refresh: OFF"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium border transition shadow-sm ${
+                autoRefresh
+                  ? "bg-slate-900 text-white border-slate-900 hover:bg-slate-800"
+                  : "bg-white text-slate-900 border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              {autoRefresh ? "Auto-refresh ON" : "Auto-refresh OFF"}
+            </button>
+          </div>
         </div>
 
-        {/* Main Metrics */}
+        {/* At-a-glance KPIs */}
         <MetricsGrid>
           <MetricCard
-            title="Total Risks"
+            title="Risks (total)"
             value={data.riskSummary.totalRisks}
             icon="⚠️"
             color="blue"
-            subtext={`Exposure: $${(data.riskSummary.totalExposure / 1000).toFixed(1)}k`}
+            subtext={`Avg score: ${(data.riskSummary.averageRiskScore * 100).toFixed(0)}%`}
+            trend={{ label: "Live", direction: "flat" }}
           />
           <MetricCard
-            title="Critical Risks"
-            value={data.riskSummary.criticalCount}
-            icon="🔴"
-            color="red"
-            subtext="Immediate action required"
+            title="Needs attention"
+            value={attentionCount}
+            icon="🔎"
+            color={attentionCount > 0 ? "red" : "green"}
+            subtext={
+              attentionCount > 0
+                ? `${data.riskSummary.criticalCount} critical • ${data.riskSummary.highCount} high`
+                : "No high/critical risks right now"
+            }
           />
           <MetricCard
-            title="Signal Ingestion"
+            title="Signals ingested"
             value={data.signals.length}
-            unit="signals"
+            unit=""
             icon="📡"
             color="green"
-            subtext={`Avg confidence: ${(data.eventSummary.averageConfidence * 100).toFixed(1)}%`}
+            subtext={`Classifier avg confidence: ${(data.eventSummary.averageConfidence * 100).toFixed(0)}%`}
           />
           <MetricCard
-            title="Active Connectors"
-            value={data.connectorHealth.activeConnectors}
-            unit={`/${data.connectorHealth.totalConnectors}`}
-            icon="🔌"
-            color="green"
-            subtext={`Success rate: ${data.connectorHealth.successRate.toFixed(1)}%`}
+            title="Exposure estimate"
+            value={formatInr(data.riskSummary.totalExposure)}
+            icon="₹"
+            color="yellow"
+            subtext="Total estimated revenue exposure"
           />
         </MetricsGrid>
 
-        {/* Charts Row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <RiskDistributionChart data={data.riskSummary.severityDistribution} />
-          <RiskTrendChart data={data.riskTrend} />
-        </div>
-
-        {/* Charts Row 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <EventTypeChart data={data.eventSummary.eventTypeBreakdown} />
-          {connectorLatencyData.length > 0 && (
-            <ConnectorLatencyChart data={connectorLatencyData} />
+        {/* Tabs */}
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          {(
+            [
+              ["overview", "Overview"],
+              ["risks", "Risks"],
+              ["signals", "Signals"],
+              ["events", "Events"],
+              ["connectors", "Connectors"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium border transition shadow-sm ${
+                tab === key
+                  ? "bg-white border-slate-900/15 ring-1 ring-slate-900/10 text-slate-900"
+                  : "bg-white/70 border-gray-200 hover:bg-white"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          {topRegions.length > 0 && (
+            <div className="ml-auto text-xs text-gray-600 hidden md:block">
+              Top regions:{" "}
+              <span className="font-medium text-gray-900">
+                {topRegions.map(([name, count]) => `${name} (${count})`).join(", ")}
+              </span>
+            </div>
           )}
         </div>
 
-        {/* Tables */}
-        <div className="space-y-6 mb-8">
-          <ConnectorMetricsTable connectors={data.connectors} />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <RecentSignalsTable signals={data.signals} />
-            <RecentEventsTable events={data.events} />
+        {tab === "overview" && (
+          <div className="space-y-6 mb-8">
+            {/* What needs attention */}
+            <div className="bg-white border border-gray-200/70 rounded-2xl p-6 shadow-sm animate-fade-in-up">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    What’s going on
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    You’re looking at India-only signals, classified events, and risk evaluations.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-sm text-gray-700">
+                    <span className="font-semibold text-gray-900">
+                      {attentionCount}
+                    </span>{" "}
+                    items need attention
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                <div className="rounded-xl border border-gray-200/70 bg-gray-50 p-4">
+                  <div className="text-xs text-gray-500">Critical</div>
+                  <div className="text-2xl font-semibold text-gray-900 mt-1">
+                    {data.riskSummary.criticalCount}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-gray-200/70 bg-gray-50 p-4">
+                  <div className="text-xs text-gray-500">High</div>
+                  <div className="text-2xl font-semibold text-gray-900 mt-1">
+                    {data.riskSummary.highCount}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-gray-200/70 bg-gray-50 p-4">
+                  <div className="text-xs text-gray-500">Signals processed</div>
+                  <div className="text-2xl font-semibold text-gray-900 mt-1">
+                    {data.signals.length}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <RiskDistributionChart data={data.riskSummary.severityDistribution} />
+              <RiskTrendChart data={data.riskTrend} />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <EventTypeChart data={data.eventSummary.eventTypeBreakdown} />
+              {connectorLatencyData.length > 0 ? (
+                <ConnectorLatencyChart data={connectorLatencyData} />
+              ) : (
+                <div className="bg-white border border-gray-200/70 rounded-2xl p-6 shadow-sm">
+                  <h3 className="text-base font-semibold text-gray-900 mb-1">
+                    Connector latency
+                  </h3>
+                  <p className="text-xs text-gray-500 mb-4">
+                    No connector latency metrics available yet.
+                  </p>
+                  <div className="text-sm text-gray-600">
+                    Once connector metrics are published, this chart will populate.
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-          <RecentRisksTable risks={data.risks} />
+        )}
+
+        {/* Details */}
+        <div className="space-y-6 mb-8">
+          {tab === "risks" && <RecentRisksTable risks={data.risks} />}
+          {tab === "signals" && <RecentSignalsTable signals={data.signals} />}
+          {tab === "events" && <RecentEventsTable events={data.events} />}
+          {tab === "connectors" && (
+            <ConnectorMetricsTable connectors={data.connectors} />
+          )}
+
+          {/* Helpful default: show a compact stack on overview */}
+          {tab === "overview" && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <RecentRisksTable risks={data.risks} />
+              <RecentSignalsTable signals={data.signals} />
+            </div>
+          )}
         </div>
       </div>
     </div>

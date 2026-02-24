@@ -38,10 +38,13 @@ export function RiskDistributionChart({ data }: RiskDistributionChartProps) {
   ];
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">
-        Risk Distribution
+    <div className="bg-white border border-gray-200/70 rounded-2xl p-6 shadow-sm">
+      <h3 className="text-base font-semibold text-gray-900 mb-1">
+        Risk distribution
       </h3>
+      <p className="text-xs text-gray-500 mb-4">
+        How many risks fall into each severity bucket.
+      </p>
       <ResponsiveContainer width="100%" height={300}>
         <PieChart>
           <Pie
@@ -76,8 +79,11 @@ export function EventTypeChart({ data }: EventTypeChartProps) {
   }));
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">Event Types</h3>
+    <div className="bg-white border border-gray-200/70 rounded-2xl p-6 shadow-sm">
+      <h3 className="text-base font-semibold text-gray-900 mb-1">Event types</h3>
+      <p className="text-xs text-gray-500 mb-4">
+        What the classifier thinks is happening.
+      </p>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -97,10 +103,11 @@ interface ConnectorLatencyChartProps {
 
 export function ConnectorLatencyChart({ data }: ConnectorLatencyChartProps) {
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">
-        Connector Latency (ms)
+    <div className="bg-white border border-gray-200/70 rounded-2xl p-6 shadow-sm">
+      <h3 className="text-base font-semibold text-gray-900 mb-1">
+        Connector latency
       </h3>
+      <p className="text-xs text-gray-500 mb-4">Average poll latency (ms).</p>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -120,10 +127,13 @@ interface RiskTrendChartProps {
 
 export function RiskTrendChart({ data }: RiskTrendChartProps) {
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">
-        Risk Trend (24h)
+    <div className="bg-white border border-gray-200/70 rounded-2xl p-6 shadow-sm">
+      <h3 className="text-base font-semibold text-gray-900 mb-1">
+        Risk trend
       </h3>
+      <p className="text-xs text-gray-500 mb-4">
+        Count and average score over time.
+      </p>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" />

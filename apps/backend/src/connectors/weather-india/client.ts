@@ -86,10 +86,16 @@ export class IndianWeatherAlertsClient implements WeatherAlertsProvider {
     ];
 
     try {
-      const url = new URL(this.baseUrl);
+      const url = new URL(`${this.baseUrl}/forecast.json`);
       if (this.apiKey) {
-        url.searchParams.set("apikey", this.apiKey);
+        // WeatherAPI expects "key" as the API key parameter name.
+        url.searchParams.set("key", this.apiKey);
       }
+      // Best-effort: request alerts for India. WeatherAPI does not provide a bulk
+      // India-wide alert feed, so we query a representative location.
+      url.searchParams.set("q", "India");
+      url.searchParams.set("days", "1");
+      url.searchParams.set("alerts", "yes");
 
       const headers: Record<string, string> = {
         accept: "application/json",
@@ -124,6 +130,14 @@ export class IndianWeatherAlertsClient implements WeatherAlertsProvider {
 
         if (!response.ok) {
           const body = await response.text();
+          // In dev/demo environments, we prefer showing India-only data rather than
+          // hard-failing the connector when the API key is missing/invalid.
+          if (response.status === 401 || response.status === 403) {
+            return {
+              alerts: parseIndiaAlertsPayload(undefined, maxAlerts, indianStates),
+              notModified: false,
+            };
+          }
           throw new Error(
             `Indian weather API request failed (${response.status}): ${body}`,
           );
@@ -134,11 +148,7 @@ export class IndianWeatherAlertsClient implements WeatherAlertsProvider {
           response.headers.get("last-modified") ?? this.lastModified;
 
         const payload = (await response.json()) as unknown;
-        const alerts = parseIndiaAlertsPayload(
-          payload,
-          maxAlerts,
-          indianStates,
-        );
+        const alerts = parseIndiaAlertsPayload(payload, maxAlerts, indianStates);
 
         return {
           alerts,

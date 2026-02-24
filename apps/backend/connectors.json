@@ -17,7 +17,8 @@
       "providerConfig": {
         "baseUrl": "https://api.weatherapi.com/v1",
         "userAgent": "swarm-risk-management/0.1",
-        "maxAlertsPerPoll": 50
+        "maxAlertsPerPoll": 50,
+        "apiKey": "${WEATHER_API_KEY}"
       }
     }
   ]
