@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "npm run --workspace=apps/backend dev",
     "services:all": "npm run --workspace=apps/backend services:all",
+    "start:all": "npm run infra:up && npm run services:all",
+    "shutdown:all": "pkill -f \"scripts/run-all-services.mjs|scripts/run-all-connectors.mjs|src/workers/signal-ingestion-worker.ts|src/workers/universal-connector-worker.ts|src/workers/risk-classification-worker.ts|src/workers/risk-engine-worker.ts|src/workers/mitigation-planning-worker.ts|src/workers/notification-worker.ts|src/adapters/signal-ingestion-gateway/index.ts|src/adapters/risk-classification-llm-adapter/index.ts\" || true && npm run infra:down",
     "web:dev": "npm run --workspace=apps/web dev",
     "web:build": "npm run --workspace=apps/web build",
     "backend:build": "npm run --workspace=apps/backend build",
