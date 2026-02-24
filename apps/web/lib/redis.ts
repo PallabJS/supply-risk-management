@@ -69,6 +69,7 @@ export interface RiskEvaluation {
   event_type?: string;
   impact_region?: string;
   expected_duration_hours?: number;
+  inventory_coverage_days?: number;
   impacted_lanes?: string[];
   lane_relevance_score?: number;
   risk_score: number;
@@ -330,6 +331,10 @@ export async function getRiskEvaluationsFromStream(
       if (typeof exposure !== "number") {
         exposure = parseFloat(String(exposure ?? "0"));
       }
+      let inventoryCoverageDays = payload.inventory_coverage_days;
+      if (typeof inventoryCoverageDays !== "number") {
+        inventoryCoverageDays = parseFloat(String(payload.inventory_coverage_days ?? ""));
+      }
 
       const riskLevel =
         (payload.risk_level as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL") ||
@@ -344,6 +349,10 @@ export async function getRiskEvaluationsFromStream(
           typeof payload.expected_duration_hours === "number"
             ? payload.expected_duration_hours
             : parseInt(String(payload.expected_duration_hours ?? "0")),
+        inventory_coverage_days:
+          Number.isFinite(inventoryCoverageDays) && inventoryCoverageDays > 0
+            ? inventoryCoverageDays
+            : undefined,
         impacted_lanes: Array.isArray(payload.impacted_lanes)
           ? (payload.impacted_lanes as string[])
           : undefined,

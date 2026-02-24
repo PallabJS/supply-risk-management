@@ -6,7 +6,7 @@ export class DeterministicMitigationPlanner implements MitigationPlanner {
   readonly name = "mitigation-planner-v1";
 
   async createPlan(riskEvaluation: RiskEvaluation): Promise<MitigationPlan> {
-    const laneId = riskEvaluation.impacted_lanes[0] || "general-india";
+    const laneId = resolveLaneId(riskEvaluation);
     const delayHours = Math.max(
       2,
       Math.round(
@@ -48,13 +48,17 @@ function buildActions(
   laneId: string,
   delayHours: number
 ): MitigationAction[] {
-  const laneLabel = laneId === "mumbai-bangalore" ? "Mumbai -> Bangalore" : laneId;
+  const laneLabel = laneDisplayName(laneId);
+  const routeGuidance =
+    laneId === "mumbai-bangalore"
+      ? "Reroute via Pune -> Hubballi -> Bengaluru and secure loading/toll slots in advance."
+      : "Reroute through an alternate corridor with confirmed carrier capacity.";
 
   const baseActions: MitigationAction[] = [
     {
       action_id: deterministicUuidFromSeed(`${riskEvaluation.risk_id}:reroute`),
       title: "Activate alternate route",
-      description: `Use alternate corridor for ${laneLabel} to bypass impacted region (${riskEvaluation.impact_region}).`,
+      description: `${routeGuidance} Primary lane: ${laneLabel}. Impact region: ${riskEvaluation.impact_region}.`,
       estimated_cost_inr: 18000,
       expected_delay_reduction_hours: Math.max(2, Math.round(delayHours * 0.45)),
       priority: 1
@@ -63,7 +67,7 @@ function buildActions(
       action_id: deterministicUuidFromSeed(`${riskEvaluation.risk_id}:split`),
       title: "Split shipment by criticality",
       description:
-        "Move critical SKUs immediately and defer non-critical SKUs to reduce SLA breach risk.",
+        "Dispatch A-class SKUs in the next line-haul and defer low-priority SKUs to protect fill-rate and SLA commitments.",
       estimated_cost_inr: 9000,
       expected_delay_reduction_hours: Math.max(1, Math.round(delayHours * 0.25)),
       priority: 2
@@ -103,6 +107,17 @@ function buildActions(
         priority: 3
       });
       break;
+    case "NEWS":
+      baseActions.push({
+        action_id: deterministicUuidFromSeed(`${riskEvaluation.risk_id}:capacity-lock`),
+        title: "Lock backup capacity for 24h",
+        description:
+          "Reserve backup carrier and cross-dock slots for the next 24 hours, then release unused capacity after disruption confirmation.",
+        estimated_cost_inr: 7000,
+        expected_delay_reduction_hours: Math.max(1, Math.round(delayHours * 0.18)),
+        priority: 3
+      });
+      break;
     default:
       baseActions.push({
         action_id: deterministicUuidFromSeed(`${riskEvaluation.risk_id}:control-tower`),
@@ -117,4 +132,39 @@ function buildActions(
   }
 
   return baseActions;
+}
+
+function normalizeText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function resolveLaneId(riskEvaluation: RiskEvaluation): string {
+  const directLane = riskEvaluation.impacted_lanes[0];
+  if (typeof directLane === "string" && directLane.trim() !== "") {
+    return directLane;
+  }
+
+  const normalizedRegion = normalizeText(riskEvaluation.impact_region);
+  const isIndiaNetwork =
+    normalizedRegion.includes("india") ||
+    normalizedRegion.includes("mumbai") ||
+    normalizedRegion.includes("maharashtra") ||
+    normalizedRegion.includes("bangalore") ||
+    normalizedRegion.includes("bengaluru") ||
+    normalizedRegion.includes("karnataka");
+  if (isIndiaNetwork) {
+    return "mumbai-bangalore";
+  }
+
+  return "general-india";
+}
+
+function laneDisplayName(laneId: string): string {
+  if (laneId === "mumbai-bangalore") {
+    return "Mumbai -> Bangalore";
+  }
+  if (laneId === "general-india") {
+    return "India national corridor";
+  }
+  return laneId;
 }

@@ -38,6 +38,23 @@ test("creates mitigation plan with lane-specific actions", async () => {
   assert.ok(plan.recommended_actions.some((a) => a.title.includes("alternate route")));
 });
 
+test("falls back to operational lane for India-wide risks", async () => {
+  const planner = new DeterministicMitigationPlanner();
+  const plan = await planner.createPlan(
+    createRiskEvaluation({
+      impacted_lanes: [],
+      impact_region: "India",
+      event_type: "NEWS"
+    })
+  );
+
+  assert.equal(plan.lane_id, "mumbai-bangalore");
+  assert.ok(
+    plan.recommended_actions[0]?.description.includes("Mumbai -> Bangalore")
+  );
+  assert.ok(plan.recommended_actions.some((a) => a.title.includes("Lock backup capacity")));
+});
+
 test("publishes mitigation plan to stream", async () => {
   const published: unknown[] = [];
   const service = new MitigationPlanningService({

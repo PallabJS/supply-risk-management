@@ -5,6 +5,7 @@ import type {
   LogisticsNewsItem,
   LogisticsNewsProvider,
 } from "./types.js";
+import { INDIA_GEO_KEYWORDS } from "../shared/india-geo.js";
 
 function assertPositiveInt(value: number, fieldName: string): void {
   if (!Number.isInteger(value) || value <= 0) {
@@ -17,13 +18,24 @@ function stripTrailingSlash(url: string): string {
 }
 
 function decodeXmlEntities(value: string): string {
-  return value
+  const basicDecoded = value
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'");
+
+  return basicDecoded
+    .replace(/&#(\d+);/g, (whole, codePoint) => {
+      const parsed = Number.parseInt(codePoint, 10);
+      return Number.isFinite(parsed) ? String.fromCodePoint(parsed) : whole;
+    })
+    .replace(/&#x([a-f0-9]+);/gi, (whole, hexCodePoint) => {
+      const parsed = Number.parseInt(hexCodePoint, 16);
+      return Number.isFinite(parsed) ? String.fromCodePoint(parsed) : whole;
+    });
 }
 
 function extractTagValue(input: string, tagName: string): string | undefined {
@@ -41,6 +53,8 @@ function sanitizeText(value: string | undefined, fallback: string): string {
   }
   return value
     .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s*[-|]\s+/g, " - ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -122,6 +136,8 @@ function isDisruptionCandidate(title: string, description: string): boolean {
   const text = `${title} ${description}`.toLowerCase();
   const hasDisruption = includesAnyKeyword(text, DISRUPTION_KEYWORDS);
   if (!hasDisruption) return false;
+  const isNetworkRelevant = includesAnyKeyword(text, [...INDIA_GEO_KEYWORDS]);
+  if (!isNetworkRelevant) return false;
   const isClearlyPositive = includesAnyKeyword(text, NON_DISRUPTION_KEYWORDS);
   if (isClearlyPositive && !text.includes("strike") && !text.includes("disrupt")) {
     return false;
