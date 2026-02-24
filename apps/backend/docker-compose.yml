@@ -9,5 +9,17 @@ services:
     volumes:
       - redis-data:/data
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: swarm-risk-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+
 volumes:
   redis-data:
+  ollama-data:
